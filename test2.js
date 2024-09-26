@@ -111,4 +111,29 @@ describe('getEtchData', () => {
     // Check the default "x-fapi-interaction-id" value
     expect(result.headers['x-fapi-interaction-id']).to.equal('987654321');
   });
+
+it('should return body directly when is_ALE is false or statusCode is not 200', async () => {
+  // Simulate a scenario where is_ALE is false
+  mockRetrieveDecryptedCiphertextMapRequest.resolves({
+    isCryptoKey: false, // is_ALE is false
+    data: {
+      appCatId: 'testAppCatId',
+      CyptoKey: 'testCryptoKey',
+      decryptLambdaUri: 'testUri',
+      DecryptedCiphertextpayload: 'testPayload',
+      retrieveDecryptedCiphertextLambdaName: 'testLambdaName',
+    },
+  });
+
+  mockGetInvolvedParty.resolves({ statusCode: 400, body: { data: 'mockBody' } }); // statusCode is not 200
+
+  const result = await getEtchData(payload, args);
+
+  // Ensure that the else block is hit and finalResponseBody is set to body directly
+  expect(mockRetrieveDecryptedCiphertextMapRequest.calledOnce).to.be.true;
+  expect(mockGetInvolvedParty.calledOnce).to.be.true;
+  expect(result).to.have.property('statusCode', 400); // We expect the statusCode to be the one from getInvolvedParty
+  expect(result.body).to.include('mockBody'); // We expect the body to be returned as is, not processed by decryptedCiphertextAPI
+});
+  
 });
