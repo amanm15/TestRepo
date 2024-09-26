@@ -24,12 +24,14 @@ describe('encryptLambdaFinalResponse', () => {
     };
 
     // Use proxyquire to stub the 'crypto' and 'validateDecryptedCiphertextResponse'
-    encryptLambdaFinalResponse = proxyquire('../service/subService/ALE/encryption', {
-      'crypto': cryptoStub,
+    const encryption = proxyquire('../service/subService/ALE/encryption', {
+      'crypto': cryptoStub, 
       '../service/subService/ALE/encryption': {
         validateDecryptedCiphertextResponse: validateDecryptedCiphertextResponseStub
       }
-    }).encryptLambdaFinalResponse;
+    });
+
+    encryptLambdaFinalResponse = encryption.encryptLambdaFinalResponse;
   });
 
   afterEach(() => {
