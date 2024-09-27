@@ -7,12 +7,13 @@ chai.use(chaiAsPromised);
 const { expect } = chai;
 
 const args = require("/mockData/mocks");
+const assert = require("assert");
 const getInvolvedParty = require("../service/subService/getInvolvedParty/index");
-const requestControlObj = require("/mockData/requestControlobj.json");
-const emptyRequestControl = require("/mockData/emptyRequestControl.json");
-const response629 = require("/mocks/response629.json");
-const payload = require("/mocks/payload.json");
-const payloadFalseRequestControl = require("/mocks/payloadwithfalserequestcontrol.json");
+const requestControlObj = require("./mockData/requestControlobj.json");
+const emptyRequestControl = require("./mockData/emptyRequestControl.json");
+const response629 = require("./mocks/response629.json");
+const payload = require("./mocks/payload.json");
+const payloadFalseRequestControl = require("./mocks/payloadwithfalserequestcontrol.json");
 const mockMappedResponse = require("./mocks/mockmappedResponse.json");
 
 let infoV2Stub;
@@ -23,9 +24,9 @@ const mockResponse = { statusCode: 200, body: '<xml></xml>' };
 
 describe('Testing index.js', function () {
   beforeEach(function () {
-infoV2Stub = sinon.stub();
-sendRequestStub = sinon.stub();
-getInvolvedParty_OCIFtoCGStub = sinon.stub();
+  infoV2Stub = sinon.stub();
+  sendRequestStub = sinon.stub();
+  getInvolvedParty_OCIFtoCGStub = sinon.stub();
   });
 
   const getInvolvedParty = proxyquire('../service/subService/getInvolvedParty/index', {
