@@ -109,4 +109,27 @@ describe('Testing index.js', function () {
     expect(sendRequestStub.calledOnceWithExactly(args, partialPayload)).to.be.true;
     expect(response).to.deep.equal(mockMappedResponse);
   });
+
+  it("should call infoV2 and map the response correctly on successful request", async function () {
+  // Arrange: Stub the sendRequest and getInvolvedParty_OCIFtoCG to return valid responses.
+  sendRequestStub.resolves(mockResponse);
+  getInvolvedParty_OCIFtoCGStub.resolves(mockMappedResponse);
+  
+  // Act: Call the function
+  const response = await getInvolvedParty(args, payload);
+  
+  // Assert: Check if sendRequest, infoV2, and getInvolvedParty_OCIFtoCG are called with correct args.
+  expect(sendRequestStub.calledOnceWithExactly(args, payload)).to.be.true;
+  expect(infoV2Stub.calledOnceWithExactly("GetInvolvedParty OCIF XML Response", mockResponse)).to.be.true;
+  expect(getInvolvedParty_OCIFtoCGStub.calledOnceWithExactly(
+    args,
+    mockResponse.body,    // Ensure the body is passed
+    mockResponse.statusCode, // Ensure statusCode is passed
+    sinon.match.object     // Ensure requestControlobj is passed
+  )).to.be.true;
+  
+  // Assert: Check if the response is correctly mapped
+  expect(response).to.deep.equal(mockMappedResponse);
+});
+
 });
