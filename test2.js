@@ -135,5 +135,26 @@ it('should return body directly when is_ALE is false or statusCode is not 200', 
   expect(result).to.have.property('statusCode', 400); // We expect the statusCode to be the one from getInvolvedParty
   expect(result.body).to.include('mockBody'); // We expect the body to be returned as is, not processed by decryptedCiphertextAPI
 });
+
+it('should handle an error and cover the catch block', async () => {
+  // Simulate an error in one of the async functions
+  const error = new Error('Test Error');
+  mockRetrieveDecryptedCiphertextMapRequest.rejects(error); // This will trigger the catch block
+
+  // Run the function with arguments
+  const result = await getEtchData(payload, args);
+
+  // Verify the catch block was hit
+  expect(mockLogError.calledOnce).to.be.true;
+  expect(result).to.have.property('statusCode', '400');
+  expect(result.headers['x-fapi-interaction-id']).to.equal('test-fapi-id'); // Verifying the headers
+  
+  // Check if the default value "987654321" is used when headers are missing
+  const argsWithoutHeaders = { ...args, headers: undefined };
+  const resultWithoutHeaders = await getEtchData(payload, argsWithoutHeaders);
+  
+  expect(resultWithoutHeaders.headers['x-fapi-interaction-id']).to.equal('987654321'); // Default value
+});
+
   
 });
