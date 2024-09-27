@@ -2,7 +2,7 @@ const { expect } = require('chai');
 const sinon = require('sinon');
 const { decryptedCiphertextAPI } = require('../ALE/index');
 const awsApi = require('../../../../utilities/apiCall/awsApi');
-const { encryptLambdaFinalResponse } = require('../encryption');
+const encryption = require('../service/subService/ALE/encryption'); // Adjust path if needed
 const { infoV2, logError } = require('@bmo-util/framework');
 
 describe('decryptedCiphertextAPI', () => {
@@ -42,7 +42,7 @@ describe('decryptedCiphertextAPI', () => {
 
     // Stubbing external dependencies
     sandbox.stub(awsApi.prototype, 'doHttpOperation').resolves('mockAPIResponse');
-    sandbox.stub(encryptLambdaFinalResponse).resolves('mockFinalResponse');
+    sandbox.stub(encryption, 'encryptLambdaFinalResponse').resolves('mockFinalResponse');
     sandbox.stub(infoV2);
     sandbox.stub(logError);
   });
@@ -62,7 +62,7 @@ describe('decryptedCiphertextAPI', () => {
     // Verifications
     expect(result).to.equal('mockFinalResponse');
     expect(awsApi.prototype.doHttpOperation.calledOnce).to.be.true;
-    expect(encryptLambdaFinalResponse.calledOnce).to.be.true;
+    expect(encryption.encryptLambdaFinalResponse.calledOnce).to.be.true;
     expect(infoV2.calledOnce).to.be.true;
   });
 
