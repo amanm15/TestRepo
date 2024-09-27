@@ -1,14 +1,11 @@
 const chai = require("chai");
 const chaiAsPromised = require("chai-as-promised");
-const proxyquire = require("proxyquire");
 const sinon = require("sinon");
 
 chai.use(chaiAsPromised);
 const { expect } = chai;
 
-const args = require("/mockData/mocks");
-const assert = require("assert");
-const getInvolvedParty = require("../service/subService/getInvolvedParty/index");
+const args = require("./mockData/mocks");
 const requestControlObj = require("./mockData/requestControlobj.json");
 const emptyRequestControl = require("./mockData/emptyRequestControl.json");
 const response629 = require("./mocks/response629.json");
@@ -16,6 +13,10 @@ const payload = require("./mocks/payload.json");
 const payloadFalseRequestControl = require("./mocks/payloadwithfalserequestcontrol.json");
 const mockMappedResponse = require("./mocks/mockmappedResponse.json");
 
+// Import the actual modules that will be tested
+const { getInvolvedParty } = require("../service/subService/getInvolvedParty/index");
+
+// Stubs for external dependencies
 let infoV2Stub;
 let sendRequestStub;
 let getInvolvedParty_OCIFtoCGStub;
@@ -24,22 +25,15 @@ const mockResponse = { statusCode: 200, body: '<xml></xml>' };
 
 describe('Testing index.js', function () {
   beforeEach(function () {
-  infoV2Stub = sinon.stub();
-  sendRequestStub = sinon.stub();
-  getInvolvedParty_OCIFtoCGStub = sinon.stub();
+    infoV2Stub = sinon.stub(require('@bmo-util/framework'), 'infoV2');
+    sendRequestStub = sinon.stub(require('../service/subService/getInvolvedParty/sendRequest'), 'sendRequest');
+    getInvolvedParty_OCIFtoCGStub = sinon.stub(require('../service/subService/getInvolvedParty/mapResponse'), 'getInvolvedParty_OCIFtoCG');
   });
 
-  const getInvolvedParty = proxyquire('../service/subService/getInvolvedParty/index', {
-    '@bmo-util/framework': {
-      infoV2: infoV2Stub
-    },
-    './sendRequest': {
-      sendRequest: sendRequestStub
-    },
-    './mapResponse': {
-      getInvolvedParty_OCIFtoCG: getInvolvedParty_OCIFtoCGStub
-    }
-  }).getInvolvedParty;
+  afterEach(function () {
+    // Restore the original methods after each test
+    sinon.restore();
+  });
 
   it("should return 400 when no valid request control flags are set", async function () {
     const response = await getInvolvedParty(args, payloadFalseRequestControl);
@@ -61,7 +55,12 @@ describe('Testing index.js', function () {
 
     expect(sendRequestStub.calledOnceWithExactly(args, payload)).to.be.true;
     expect(infoV2Stub.calledOnceWithExactly("GetInvolvedParty OCIF XML Response", mockResponse)).to.be.true;
-    expect(getInvolvedParty_OCIFtoCGStub.calledOnceWithExactly(args, mockResponse.body, mockResponse.statusCode, sinon.match.object)).to.be.true;
+    expect(getInvolvedParty_OCIFtoCGStub.calledOnceWithExactly(
+      args,
+      mockResponse.body,
+      mockResponse.statusCode,
+      sinon.match.object
+    )).to.be.true;
     expect(response).to.deep.equal(mockMappedResponse);
   });
 
@@ -111,25 +110,24 @@ describe('Testing index.js', function () {
   });
 
   it("should call infoV2 and map the response correctly on successful request", async function () {
-  // Arrange: Stub the sendRequest and getInvolvedParty_OCIFtoCG to return valid responses.
-  sendRequestStub.resolves(mockResponse);
-  getInvolvedParty_OCIFtoCGStub.resolves(mockMappedResponse);
-  
-  // Act: Call the function
-  const response = await getInvolvedParty(args, payload);
-  
-  // Assert: Check if sendRequest, infoV2, and getInvolvedParty_OCIFtoCG are called with correct args.
-  expect(sendRequestStub.calledOnceWithExactly(args, payload)).to.be.true;
-  expect(infoV2Stub.calledOnceWithExactly("GetInvolvedParty OCIF XML Response", mockResponse)).to.be.true;
-  expect(getInvolvedParty_OCIFtoCGStub.calledOnceWithExactly(
-    args,
-    mockResponse.body,    // Ensure the body is passed
-    mockResponse.statusCode, // Ensure statusCode is passed
-    sinon.match.object     // Ensure requestControlobj is passed
-  )).to.be.true;
-  
-  // Assert: Check if the response is correctly mapped
-  expect(response).to.deep.equal(mockMappedResponse);
-});
+    // Arrange: Stub the sendRequest and getInvolvedParty_OCIFtoCG to return valid responses.
+    sendRequestStub.resolves(mockResponse);
+    getInvolvedParty_OCIFtoCGStub.resolves(mockMappedResponse);
 
+    // Act: Call the function
+    const response = await getInvolvedParty(args, payload);
+
+    // Assert: Check if sendRequest, infoV2, and getInvolvedParty_OCIFtoCG are called with correct args.
+    expect(sendRequestStub.calledOnceWithExactly(args, payload)).to.be.true;
+    expect(infoV2Stub.calledOnceWithExactly("GetInvolvedParty OCIF XML Response", mockResponse)).to.be.true;
+    expect(getInvolvedParty_OCIFtoCGStub.calledOnceWithExactly(
+      args,
+      mockResponse.body,    // Ensure the body is passed
+      mockResponse.statusCode, // Ensure statusCode is passed
+      sinon.match.object     // Ensure requestControlobj is passed
+    )).to.be.true;
+
+    // Assert: Check if the response is correctly mapped
+    expect(response).to.deep.equal(mockMappedResponse);
+  });
 });
