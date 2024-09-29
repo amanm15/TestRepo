@@ -75,6 +75,10 @@ describe('decryptedCiphertextAPI', () => {
     // Verifications
     expect(result).to.be.undefined;
     expect(logError.calledOnce).to.be.true;
-    expect(logError.args[0][0]).to.include('err'); // Ensure the log contains error info
+    if (framework.logError.args.length > 0) {
+  expect(framework.logError.args[0][0]).to.have.property('message').that.includes('Test Error');
+} else {
+  throw new Error('logError was not called with any arguments');
+}
   });
 });
