@@ -76,8 +76,14 @@ it('should log an error when an exception occurs', async () => {
 
     // Verifications
     expect(result).to.be.undefined;  // Ensure no result on failure
-    expect(framework.logError.calledOnce).to.be.true;  // Check if logError is called
-    expect(framework.logError.args[0][0].message).to.include('Test Error');  // Ensure error message is logged
+    expect(framework.logError.calledOnce).to.be.true;  // Check if logError was called
+    
+    if (framework.logError.called) {
+        expect(framework.logError.args[0][0].message).to.include('Test Error');  // Ensure error message is logged
+    } else {
+        console.error('logError was not called');
+    }
 });
+
 
 });
