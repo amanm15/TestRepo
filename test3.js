@@ -66,19 +66,18 @@ describe('decryptedCiphertextAPI', () => {
     expect(infoV2.calledOnce).to.be.true;
   });
 
-  it('should log an error when an exception occurs', async () => {
+it('should log an error when an exception occurs', async () => {
     // Simulate an error in fetchParamterFromCache
-    mockLambdaArgs.authenticationResources.fetchParamterFromCache.withArgs(mockLambdaArgs.ssm, mockLambdaArgs.decryptHostSSMPath, false).throws(new Error('Test Error'));
+    mockLambdaArgs.authenticationResources.fetchParamterFromCache
+      .withArgs(mockLambdaArgs.ssm, mockLambdaArgs.decryptHostSSMPath, false)
+      .throws(new Error('Test Error'));
 
     const result = await decryptedCiphertextAPI(mockLambdaArgs, mockFunctionArgs);
 
     // Verifications
-    expect(result).to.be.undefined;
-    expect(logError.calledOnce).to.be.true;
-    if (framework.logError.args.length > 0) {
-  expect(framework.logError.args[0][0]).to.have.property('message').that.includes('Test Error');
-} else {
-  throw new Error('logError was not called with any arguments');
-}
-  });
+    expect(result).to.be.undefined;  // Ensure no result on failure
+    expect(framework.logError.calledOnce).to.be.true;  // Check if logError is called
+    expect(framework.logError.args[0][0].message).to.include('Test Error');  // Ensure error message is logged
+});
+
 });
