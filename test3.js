@@ -85,6 +85,32 @@ it('should log an error when an exception occurs', async () => {
     }
 });
 
+it('should successfully return final response when all calls succeed', async () => {
+    // Set up the mocks to return valid values
+    mockLambdaArgs.authenticationResources.fetchParamterFromCache
+      .withArgs(mockLambdaArgs.ssm, mockLambdaArgs.decryptHostSSMPath, false)
+      .resolves('mockAwsApiHost');
+
+    mockLambdaArgs.authenticationResources.fetchParamterFromCache
+      .withArgs(mockLambdaArgs.ssm, mockLambdaArgs.decryptKeySSMPath, false)
+      .resolves('mockAwsApiKey');
+
+    mockLambdaArgs.authenticationResources.fetchParamterFromCache
+      .withArgs(mockLambdaArgs.ssm, 'cert_value_centralized_nlb', false)
+      .resolves('mockRootCert');
+
+    mockAwsApiInstance.doHttpOperation.resolves('mockAPIResponse'); // Ensure this resolves
+
+    // Mock the final encryption response
+    sandbox.stub(encryption, 'encryptLambdaFinalResponse').resolves('mockFinalResponse');
+
+    const result = await decryptedCiphertextAPI(mockLambdaArgs, mockFunctionArgs);
+
+    // Verify that the result matches the expected final response
+    expect(result).to.equal('mockFinalResponse');
+    expect(awsApi.prototype.doHttpOperation.calledOnce).to.be.true;
+    expect(encryption.encryptLambdaFinalResponse.calledOnce).to.be.true;
+});
 
 
 });
