@@ -88,4 +88,19 @@ describe('Testing encryption.js', function () {
     ).to.be.rejectedWith('contentEncryptionkey value is invalid');
   });
 
+  it('should throw an error for invalid x-cypto-key when ivBase64 is too short', async function () {
+    const invalidXCryptoKey = 'ab'; // Less than 4 characters
+
+    await expect(
+        encryptLambdaFinalResponse(
+            'request-id',
+            'interaction-id',
+            invalidXCryptoKey,
+            validDecryptedCiphertextResponse,
+            getEtchDataResponse
+        )
+    ).to.be.rejectedWith(sinon.match.has('detail', 'x-cypto-key is invalid'));
+});
+
+
 });
