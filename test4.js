@@ -87,4 +87,18 @@ describe('Testing encryption.js', function () {
       )
     ).to.be.rejectedWith('contentEncryptionkey value is invalid');
   });
+
+  it('should throw error for invalid x-cypto-key', async () => {
+  // Arrange: Provide invalid x-crypto-key
+  const invalidCryptoKey = 'invalid-key';
+  const functionArgs = {
+    ...mockFunctionArgs,
+    xCyptoKey: invalidCryptoKey, // Injecting invalid key
+  };
+
+  // Act & Assert: Expect the function to reject with the specific error
+  await expect(encryption.someFunction(mockLambdaArgs, functionArgs))
+    .to.be.rejectedWith(Error, 'x-crypto-key is invalid');
+});
+
 });
