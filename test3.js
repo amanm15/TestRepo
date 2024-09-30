@@ -70,20 +70,21 @@ it('should log an error when an exception occurs', async () => {
     // Simulate an error in fetchParamterFromCache
     mockLambdaArgs.authenticationResources.fetchParamterFromCache
       .withArgs(mockLambdaArgs.ssm, mockLambdaArgs.decryptHostSSMPath, false)
-      .throws(new Error('Test Error'));
+      .rejects(new Error('Test Error')); // Use rejects to simulate an error
 
     const result = await decryptedCiphertextAPI(mockLambdaArgs, mockFunctionArgs);
 
     // Verifications
     expect(result).to.be.undefined;  // Ensure no result on failure
-    expect(framework.logError.calledOnce).to.be.true;  // Check if logError was called
-    
-    if (framework.logError.called) {
-        expect(framework.logError.args[0][0].message).to.include('Test Error');  // Ensure error message is logged
+    expect(logError.calledOnce).to.be.true;  // Check if logError was called
+
+    if (logError.called) {
+        expect(logError.args[0][0]).to.include('Test Error');  // Ensure error message is logged
     } else {
         console.error('logError was not called');
     }
 });
+
 
 
 });
