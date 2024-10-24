@@ -1,3 +1,8 @@
+delete require.cache[require.resolve('./index')];
+delete require.cache[require.resolve('../amendInvolvedParty/mapRequest')];
+delete require.cache[require.resolve('../sendRequest')];
+delete require.cache[require.resolve('./mapResponse')];
+
 const { expect } = require('chai');
 const sinon = require('sinon');
 const { amendInvolvedParty } = require('./index');
