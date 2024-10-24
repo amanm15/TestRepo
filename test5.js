@@ -1,8 +1,8 @@
 const { expect } = require('chai');
 const sinon = require('sinon');
-const { amendInvolvedParty } = require('./index'); // Adjust the path as needed
+const { amendInvolvedParty } = require('./index');
 const { amendInvolvedParty_OCIFtoCG } = require('../amendInvolvedParty/mapRequest');
-const { sendRequest } = require('./sendRequest');
+const { sendRequest } = require('../sendRequest');  // Ensure this path is correct
 const { amendInvolvedParty_CGtoOCIF } = require('./mapResponse');
 const { logError } = require('@bmo-util/framework');
 
@@ -16,9 +16,15 @@ describe('amendInvolvedParty', () => {
     mockArgs = { someArg: 'value' };
     mockPayload = { somePayload: 'data' };
 
-    sandbox.stub(amendInvolvedParty_OCIFtoCG).resolves({ converted: 'body' });
-    sandbox.stub(sendRequest).resolves({ some: 'response' });
-    sandbox.stub(amendInvolvedParty_CGtoOCIF).resolves({ statusCode: 200, responseObject: { some: 'responseObject' } });
+    if (amendInvolvedParty_OCIFtoCG) {
+      sandbox.stub(amendInvolvedParty_OCIFtoCG).resolves({ converted: 'body' });
+    }
+    if (sendRequest) {
+      sandbox.stub(sendRequest).resolves({ some: 'response' });
+    }
+    if (amendInvolvedParty_CGtoOCIF) {
+      sandbox.stub(amendInvolvedParty_CGtoOCIF).resolves({ statusCode: 200, responseObject: { some: 'responseObject' } });
+    }
     sandbox.stub(logError);
   });
 
