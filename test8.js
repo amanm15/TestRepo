@@ -2,104 +2,67 @@ const { expect } = require("chai");
 const sinon = require("sinon");
 const proxyquire = require("proxyquire");
 
-describe("amendInvolvedParty_CGtoOCIF", () => {
-    let parseStringStub, logErrorStub, infoV2Stub, amendInvolvedParty_CGtoOCIF;
+describe("mapResponse", () => {
+    let mapResponse;
+    let logErrorStub;
+    let parserStub;
 
     beforeEach(() => {
-        // Stub the methods you want to mock
-        parseStringStub = sinon.stub();
         logErrorStub = sinon.stub();
-        infoV2Stub = sinon.stub();
+        parserStub = {
+            parseString: sinon.stub(),
+        };
 
-        // Use Proxyquire to load the module with the mocked dependencies
-        amendInvolvedParty_CGtoOCIF = proxyquire("./mapResponse", {
-            "xml2js": {
-                Parser: function () {
-                    this.parseString = parseStringStub;
-                }
-            },
+        // Use proxyquire to replace the actual logError and xml2js
+        mapResponse = proxyquire("../path/to/mapResponse", {
             "@bmo-util/framework": {
                 logError: logErrorStub,
-                infoV2: infoV2Stub
-            }
-        }).amendInvolvedParty_CGtoOCIF;
+            },
+            "xml2js": {
+                Parser: sinon.stub().returns(parserStub),
+            },
+        });
     });
 
     afterEach(() => {
-        sinon.restore(); // Clean up after each test
+        sinon.restore();
     });
 
-    it("should return success response when statusCode is 200", async () => {
+    it("should return response object when statusCode is 200", async () => {
         const response = { statusCode: 200, body: "<xml>data</xml>" };
-        const result = await amendInvolvedParty_CGtoOCIF(response);
 
+        const result = await mapResponse.amendInvolvedParty_CGtoOCIF(response);
         expect(result).to.deep.equal({
             statusCode: 200,
-            responseObject: {}
-        });
-    });
-
-    it("should return error response for systemfault", async () => {
-        const xmlData = `<Envelope>
-            <Body>
-                <Fault>
-                    <faultcode>systemfault</faultcode>
-                    <detail>
-                        <systemFault>
-                            <faultInfo>
-                                <additionalText>Some error occurred</additionalText>
-                                <parameter>
-                                    <key>TRANSACTION_REFERENCE</key>
-                                    <value>12345</value>
-                                </parameter>
-                            </faultInfo>
-                        </systemFault>
-                    </detail>
-                </Fault>
-            </Body>
-        </Envelope>`;
-
-        const response = { statusCode: 500, body: xmlData };
-
-        // Simulate the XML parsing with stub
-        parseStringStub.yields(null, {
-            Envelope: {
-                Body: {
-                    Fault: {
-                        faultcode: "systemfault",
-                        detail: {
-                            systemFault: {
-                                faultInfo: {
-                                    additionalText: "Some error occurred",
-                                    parameter: [{ key: "TRANSACTION_REFERENCE", value: "12345" }]
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        });
-
-        const result = await amendInvolvedParty_CGtoOCIF(response);
-
-        expect(result).to.have.property("statusCode", 500);
-        expect(result.responseObject).to.deep.include({
-            type: "failure",
-            title: "internal Server error",
-            detail: "systemfault: TRANSACTION_REFERENCE: 12345, Some error occurred"
+            responseObject: {},
         });
     });
 
     it("should log and throw error when XML parsing fails", async () => {
-        const xmlData = "<invalid_xml>";
-        const response = { statusCode: 500, body: xmlData };
+        const response = { statusCode: 500, body: "<xml>data</xml>" };
+        const error = new Error("Parsing error");
+        parserStub.parseString.yields(error); // Simulate parsing error
 
-        // Simulate a parsing error
-        const parseError = new Error("Parse error");
-        parseStringStub.yields(parseError, null);
+        await expect(mapResponse.amendInvolvedParty_CGtoOCIF(response)).to.be.rejectedWith(error);
 
-        // Expect the function to log the error and throw it
-        await expect(amendInvolvedParty_CGtoOCIF(response)).to.be.rejectedWith("Parse error");
-        expect(logErrorStub.calledWith("error parsing XML getInvolvedPartyResponse to JSON", parseError)).to.be.true;
+        expect(logErrorStub.calledOnce).to.be.true;
+        expect(logErrorStub.calledWith("error parsing XML getInvolvedPartyResponse to JSON", error)).to.be.true;
+    });
+
+    it("should handle error response correctly", async () => {
+        const response = { statusCode: 500, body: "<xml><Envelope><Body><Fault><faultcode>systemfault</faultcode><detail><systemFault><faultInfo><additionalText>Error occurred</additionalText></faultInfo></systemFault></detail></Fault></Body></Envelope></xml>" };
+        parserStub.parseString.yields(null, response.body); // Simulate successful parsing
+
+        const result = await mapResponse.amendInvolvedParty_CGtoOCIF(response);
+
+        expect(result).to.deep.include({
+            statusCode: 500,
+            responseObject: {
+                type: "failure",
+                title: "internal Server error",
+                status: 500,
+                detail: "systemfault: TRANSACTION_REFERENCE: no TRANSACTION_REFERENCE found, Error occurred",
+            },
+        });
     });
 });
