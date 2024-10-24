@@ -1,6 +1,10 @@
 const { expect } = require('chai');
 const sinon = require('sinon');
 const proxyquire = require('proxyquire');
+const chaiAsPromised = require('chai-as-promised');
+
+// Use chai-as-promised
+chai.use(chaiAsPromised);
 
 describe('sendRequest', () => {
   let sendRequest;
