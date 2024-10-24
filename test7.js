@@ -22,7 +22,7 @@ describe('sendRequest', () => {
     };
 
     // Using proxyquire to inject stubs
-    sendRequest = proxyquire('../sendRequest', {
+    sendRequest = proxyquire('../path/to/sendRequest', {
       '@bmo-util/framework': frameworkStub,
       '../../../../utilities/MutualSSLOps/operations': {
         mutualSSL_SM: mutualSSLStub,
@@ -30,7 +30,8 @@ describe('sendRequest', () => {
       '../../../../utilities/cacheHandler/cacheHandler': {
         getcachedvalue: getCachedValueStub,
       },
-    });
+    }).sendRequest; // Notice the .sendRequest here to get the function
+
   });
 
   afterEach(() => {
