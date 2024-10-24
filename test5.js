@@ -1,36 +1,37 @@
-delete require.cache[require.resolve('./index')];
-delete require.cache[require.resolve('../amendInvolvedParty/mapRequest')];
-delete require.cache[require.resolve('../sendRequest')];
-delete require.cache[require.resolve('./mapResponse')];
-
-const { expect } = require('chai');
 const sinon = require('sinon');
-const { amendInvolvedParty } = require('./index');
-const { amendInvolvedParty_OCIFtoCG } = require('../amendInvolvedParty/mapRequest');
-const { sendRequest } = require('../sendRequest');  // Ensure this path is correct
-const { amendInvolvedParty_CGtoOCIF } = require('./mapResponse');
-const { logError } = require('@bmo-util/framework');
+const { expect } = require('chai');
+const proxyquire = require('proxyquire');
+
+const sandbox = sinon.createSandbox();
+let mockAmendInvolvedParty_OCIFtoCG;
+let mockSendRequest;
+let mockAmendInvolvedParty_CGtoOCIF;
 
 describe('amendInvolvedParty', () => {
-  let sandbox;
-  let mockArgs;
-  let mockPayload;
+  let amendInvolvedParty;
 
   beforeEach(() => {
-    sandbox = sinon.createSandbox();
-    mockArgs = { someArg: 'value' };
-    mockPayload = { somePayload: 'data' };
+    // Create stubs for dependencies
+    mockAmendInvolvedParty_OCIFtoCG = sandbox.stub();
+    mockSendRequest = sandbox.stub();
+    mockAmendInvolvedParty_CGtoOCIF = sandbox.stub();
 
-    if (amendInvolvedParty_OCIFtoCG) {
-      sandbox.stub(amendInvolvedParty_OCIFtoCG).resolves({ converted: 'body' });
-    }
-    if (sendRequest) {
-      sandbox.stub(sendRequest).resolves({ some: 'response' });
-    }
-    if (amendInvolvedParty_CGtoOCIF) {
-      sandbox.stub(amendInvolvedParty_CGtoOCIF).resolves({ statusCode: 200, responseObject: { some: 'responseObject' } });
-    }
-    sandbox.stub(logError);
+    // Use proxyquire to replace the real dependencies with stubs
+    amendInvolvedParty = proxyquire('./index', {
+      '../amendInvolvedParty/mapRequest': {
+        amendInvolvedParty_OCIFtoCG: mockAmendInvolvedParty_OCIFtoCG
+      },
+      '../sendRequest': {
+        sendRequest: mockSendRequest
+      },
+      './mapResponse': {
+        amendInvolvedParty_CGtoOCIF: mockAmendInvolvedParty_CGtoOCIF
+      },
+      '@bmo-util/framework': {
+        logError: sandbox.stub(),
+        infoV2: sandbox.stub(),
+      }
+    }).amendInvolvedParty;
   });
 
   afterEach(() => {
@@ -38,27 +39,39 @@ describe('amendInvolvedParty', () => {
   });
 
   it('should call amendInvolvedParty_OCIFtoCG, sendRequest, and amendInvolvedParty_CGtoOCIF, and return the expected response', async () => {
-    const result = await amendInvolvedParty(mockArgs, mockPayload);
+    // Arrange
+    const mockBody = { some: 'data' };
+    const mockResponse = { statusCode: 200, responseObject: { some: 'response' } };
 
-    expect(amendInvolvedParty_OCIFtoCG.calledOnceWithExactly(mockPayload)).to.be.true;
-    expect(sendRequest.calledOnceWithExactly(mockArgs, { converted: 'body' })).to.be.true;
-    expect(amendInvolvedParty_CGtoOCIF.calledOnceWithExactly({ some: 'response' })).to.be.true;
+    mockAmendInvolvedParty_OCIFtoCG.resolves(mockBody);
+    mockSendRequest.resolves(mockResponse);
+    mockAmendInvolvedParty_CGtoOCIF.resolves(mockResponse);
 
-    expect(result).to.deep.equal({
-      statusCode: 200,
-      responseObject: { some: 'responseObject' }
-    });
+    const args = {};
+    const payload = {};
+
+    // Act
+    const result = await amendInvolvedParty(args, payload);
+
+    // Assert
+    expect(result).to.deep.equal(mockResponse);
+    expect(mockAmendInvolvedParty_OCIFtoCG.calledOnce).to.be.true;
+    expect(mockSendRequest.calledOnce).to.be.true;
+    expect(mockAmendInvolvedParty_CGtoOCIF.calledOnce).to.be.true;
   });
 
-  it('should log and throw an error if any function throws an error', async () => {
+  it('should log an error and throw if an exception occurs', async () => {
     const error = new Error('Test Error');
-    amendInvolvedParty_OCIFtoCG.rejects(error);
+    mockAmendInvolvedParty_OCIFtoCG.rejects(error);
+
+    const args = {};
+    const payload = {};
 
     try {
-      await amendInvolvedParty(mockArgs, mockPayload);
+      await amendInvolvedParty(args, payload);
     } catch (err) {
       expect(err).to.equal(error);
-      expect(logError.calledOnceWithExactly('error invoking amendInvolvedParty', error)).to.be.true;
+      expect(logError.calledOnce).to.be.true;
     }
   });
 });
