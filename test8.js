@@ -2,6 +2,7 @@ const chai = require('chai');
 const sinon = require('sinon');
 const proxyquire = require('proxyquire');
 const { expect } = chai;
+chai.use(require('chai-as-promised')); // Ensure chai-as-promised is set up
 
 describe('amendInvolvedParty_CGtoOCIF', function () {
     let mapResponse;
