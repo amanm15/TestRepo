@@ -1,12 +1,11 @@
 const { expect } = require('chai');
-const proxyquire = require('proxyquire');
 const sinon = require('sinon');
+const proxyquire = require('proxyquire');
 
 describe('mapResponse', () => {
     let mapResponse;
     let logErrorStub;
     let xml2jsStub;
-    let mockResponse;
 
     beforeEach(() => {
         logErrorStub = sinon.stub();
@@ -17,68 +16,130 @@ describe('mapResponse', () => {
         };
 
         mapResponse = proxyquire('../service/subService/amendInvolvedParty/mapResponse', {
-            '@bmo-util/framework': { logError: logErrorStub },
-            'xml2js': xml2jsStub
+            '@bmo-util/framework': { logError: logErrorStub, infoV2: sinon.stub() },
+            'xml2js': xml2jsStub,
+            'xml2js-processors': { stripPrefix: sinon.stub() }
         });
+    });
 
-        mockResponse = {
-            statusCode: 500,
-            body: '<Envelope><Body><Fault><faultcode>systemfault</faultcode></Fault></Body></Envelope>'
-        };
+    it('should successfully parse a valid XML response', async () => {
+        const mockResponse = { statusCode: 200, body: '<xml></xml>' };
+        xml2jsStub.Parser().parseString.yields(null, { response: 'parsed' });
+
+        const result = await mapResponse.amendInvolvedParty_CGtoOCIF(mockResponse);
+
+        expect(result.statusCode).to.equal(200);
+        expect(result.responseObject).to.be.an('object');
+    });
+
+    it('should log and throw error when XML parsing fails', async () => {
+        const mockResponse = { statusCode: 200, body: '<xml></xml>' };
+        const error = new Error('Parsing Error');
+        xml2jsStub.Parser().parseString.yields(error, null);
+
+        try {
+            await mapResponse.amendInvolvedParty_CGtoOCIF(mockResponse);
+        } catch (err) {
+            expect(logErrorStub.calledWith('err parse XML get InvolvedPartyResponse to JSON', error)).to.be.true;
+            expect(err).to.equal(error);
+        }
     });
 
     it('should return a formatted system fault error response', async () => {
-        xml2jsStub.Parser().parseString.yields(null, {
+        const mockResponse = { statusCode: 500, body: '<xml></xml>' };
+        const parsedJsonData = {
             Envelope: {
                 Body: {
                     Fault: {
-                        faultcode: 'systemfault',
                         detail: {
                             systemFault: {
                                 faultInfo: {
-                                    additionalText: 'Test additional text',
-                                    parameter: [
-                                        { key: 'TRANSACTION_REFERENCE', value: '12345' }
-                                    ]
+                                    additionalText: 'Some additional info',
+                                    parameter: [{ key: 'TRANSACTION_REFERENCE', value: '12345' }]
                                 }
                             }
                         }
                     }
                 }
             }
-        });
+        };
+        xml2jsStub.Parser().parseString.yields(null, parsedJsonData);
 
         const result = await mapResponse.amendInvolvedParty_CGtoOCIF(mockResponse);
 
-        expect(result.statusCode).to.equal(200);
-
-        // Defensive check for the responseObject and detail existence
-        expect(result.responseObject).to.have.property('detail');
-        expect(result.responseObject.detail).to.be.a('string');
-
-        // Ensure detail includes transaction reference and additional text
-        expect(result.responseObject.detail).to.include('TRANSACTION_REFERENCE: 12345');
-        expect(result.responseObject.detail).to.include('Test additional text');
+        expect(result.responseObject.detail).to.include('systemfault: TRANSACTION_REFERENCE: 12345, Some additional info');
     });
 
-    it('should log and throw error when XML parsing fails', async () => {
-        xml2jsStub.Parser().parseString.yields(new Error('Parsing Error'), null);
-
-        try {
-            await mapResponse.amendInvolvedParty_CGtoOCIF(mockResponse);
-        } catch (err) {
-            expect(logErrorStub.calledOnce).to.be.true;
-            expect(logErrorStub.args[0][0]).to.equal('err parse XML get InvolvedPartyResponse to JSON');
-            expect(err.message).to.equal('Parsing Error');
-        }
-    });
-
-    it('should return an empty responseObject if status code is 200', async () => {
-        mockResponse.statusCode = 200;
+    it('should return a formatted datavalidationfault error response', async () => {
+        const mockResponse = { statusCode: 500, body: '<xml></xml>' };
+        const parsedJsonData = {
+            Envelope: {
+                Body: {
+                    Fault: {
+                        detail: {
+                            dataValidationFault: {
+                                faultInfo: {
+                                    parameter: [{ key: 'TRANSACTION_REFERENCE', value: '67890' }]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+        xml2jsStub.Parser().parseString.yields(null, parsedJsonData);
 
         const result = await mapResponse.amendInvolvedParty_CGtoOCIF(mockResponse);
 
-        expect(result.statusCode).to.equal(200);
-        expect(result.responseObject).to.deep.equal({});
+        expect(result.responseObject.detail).to.include('datavalidationfault: TRANSACTION_REFERENCE: 67890');
+    });
+
+    it('should return a formatted dataaccessfault error response', async () => {
+        const mockResponse = { statusCode: 500, body: '<xml></xml>' };
+        const parsedJsonData = {
+            Envelope: {
+                Body: {
+                    Fault: {
+                        detail: {
+                            dataAccessFault: {
+                                faultInfo: {
+                                    parameter: [{ key: 'TRANSACTION_REFERENCE', value: '54321' }]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+        xml2jsStub.Parser().parseString.yields(null, parsedJsonData);
+
+        const result = await mapResponse.amendInvolvedParty_CGtoOCIF(mockResponse);
+
+        expect(result.responseObject.detail).to.include('dataaccessfault: TRANSACTION_REFERENCE: 54321');
+    });
+
+    // Test cases for extractTransactionReference function
+    it('should return TRANSACTION_REFERENCE if found in parameters array', () => {
+        const parameters = [{ key: 'TRANSACTION_REFERENCE', value: '12345' }];
+        const result = mapResponse.extractTransactionReference(parameters);
+        expect(result).to.equal('12345');
+    });
+
+    it('should return "no TRANSACTION_REFERENCE found" if TRANSACTION_REFERENCE is not found in parameters array', () => {
+        const parameters = [{ key: 'OTHER_KEY', value: '67890' }];
+        const result = mapResponse.extractTransactionReference(parameters);
+        expect(result).to.equal('no TRANSACTION_REFERENCE found');
+    });
+
+    it('should return parameters value if input is not an array', () => {
+        const parameters = { value: '67890' };
+        const result = mapResponse.extractTransactionReference(parameters);
+        expect(result).to.equal('67890');
+    });
+
+    it('should return "no TRANSACTION_REFERENCE found" if parameters are undefined', () => {
+        const parameters = undefined;
+        const result = mapResponse.extractTransactionReference(parameters);
+        expect(result).to.equal('no TRANSACTION_REFERENCE found');
     });
 });
