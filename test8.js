@@ -4,12 +4,10 @@ const sinon = require('sinon');
 
 // Stubs for dependencies
 const logErrorStub = sinon.stub();
+const parseStringStub = sinon.stub();
 const xml2jsStub = {
     Parser: sinon.stub().returns({
-        parseString: (xml, callback) => {
-            // Default behavior for successful parsing
-            callback(null, { Envelope: { Body: { Fault: {} } } });
-        },
+        parseString: parseStringStub, // Directly assigning the stub here
     }),
 };
 
@@ -38,9 +36,9 @@ describe('mapResponse', () => {
         const response = { statusCode: 200, body: '<xml></xml>' };
 
         // Simulate an XML parsing error
-        xml2jsStub.Parser().parseString = (xml, callback) => {
+        parseStringStub.callsFake((xml, callback) => {
             callback(new Error('Parsing Error'), null);
-        };
+        });
 
         let error;
         try {
