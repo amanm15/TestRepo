@@ -2,7 +2,7 @@ const chai = require('chai');
 const sinon = require('sinon');
 const proxyquire = require('proxyquire');
 const { expect } = chai;
-chai.use(require('chai-as-promised')); // Ensure chai-as-promised is set up
+chai.use(require('chai-as-promised'));
 
 describe('amendInvolvedParty_CGtoOCIF', function () {
     let mapResponse;
@@ -21,8 +21,8 @@ describe('amendInvolvedParty_CGtoOCIF', function () {
 
         // Proxyquire to replace actual dependencies with stubs
         mapResponse = proxyquire('../service/subService/amendInvolvedParty/mapResponse', {
-            '@bmo-util/framework': { logError: logErrorStub, infoV2: sinon.stub() }, // Stub logError and infoV2
-            'xml2js': xml2jsStub // Stub xml2js to use the mock parser
+            '@bmo-util/framework': { logError: logErrorStub, infoV2: sinon.stub() },
+            'xml2js': xml2jsStub
         });
     });
 
@@ -39,7 +39,7 @@ describe('amendInvolvedParty_CGtoOCIF', function () {
         parserStub.parseString.yields(error, null); // Simulate parser throwing an error
 
         await expect(mapResponse.amendInvolvedParty_CGtoOCIF(mockResponse))
-            .to.be.rejectedWith(error);
+            .to.be.rejectedWith(Error, 'Parsing error'); // Expect rejection with error
 
         // Ensure that logError was called
         sinon.assert.calledOnce(logErrorStub);
@@ -56,7 +56,6 @@ describe('amendInvolvedParty_CGtoOCIF', function () {
 
         const result = await mapResponse.amendInvolvedParty_CGtoOCIF(mockResponse);
 
-        // Ensure the result is formatted as expected
         expect(result).to.deep.equal({
             statusCode: 200,
             responseObject: mockParsedData
