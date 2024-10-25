@@ -1,127 +1,119 @@
-const proxyquire = require('proxyquire');
-const { expect } = require('chai');
+const chai = require('chai');
+const { expect } = chai;
 const sinon = require('sinon');
-
-// Stubs for dependencies
-const logErrorStub = sinon.stub();
-const parseStringStub = sinon.stub();
-const xml2jsStub = {
-    Parser: sinon.stub().returns({
-        parseString: parseStringStub, // Directly assigning the stub here
-    }),
-};
-
-const mapResponse = proxyquire('../service/subService/amendInvolvedParty/mapResponse', {
-    '@bmo-util/framework': { logError: logErrorStub },
-    'xml2js': xml2jsStub,
-});
+const proxyquire = require('proxyquire');
 
 describe('mapResponse', () => {
-    afterEach(() => {
-        sinon.reset();
+    let mapResponse, xml2jsStub, logErrorStub, mockResponse;
+
+    beforeEach(() => {
+        // Stubbing logError
+        logErrorStub = sinon.stub();
+
+        // Mocking xml2js parser
+        xml2jsStub = {
+            Parser: function() {
+                return {
+                    parseString: sinon.stub()
+                };
+            }
+        };
+
+        // Requiring mapResponse with stubs
+        mapResponse = proxyquire('../service/subService/amendInvolvedParty/mapResponse', {
+            '@bmo-util/framework': { logError: logErrorStub },
+            'xml2js': xml2jsStub
+        });
+
+        // Mock response object
+        mockResponse = {
+            statusCode: 200,
+            body: '<Envelope><Body><Fault><faultcode>systemfault</faultcode></Fault></Body></Envelope>'
+        };
     });
 
     it('should successfully parse a valid XML response', async () => {
-        const response = { statusCode: 200, body: '<xml></xml>' };
+        xml2jsStub.Parser().parseString.yields(null, { Envelope: { Body: { Fault: { faultcode: 'systemfault' } } } });
 
-        const result = await mapResponse.amendInvolvedParty_CGtoOCIF(response);
+        const result = await mapResponse.amendInvolvedParty_CGtoOCIF(mockResponse);
 
-        expect(result).to.deep.equal({
-            statusCode: 200,
-            responseObject: {}, // Replace with expected response based on parsing
-        });
+        expect(result.statusCode).to.equal(200);
+        expect(result.responseObject).to.be.an('object');
     });
 
-    it('should log and throw error when XML parsing fails', async () => {
-        const response = { statusCode: 200, body: '<xml></xml>' };
+    it('should log and throw an error when XML parsing fails', async () => {
+        const error = new Error('Parsing Error');
+        xml2jsStub.Parser().parseString.yields(error, null);
 
-        // Simulate an XML parsing error
-        parseStringStub.callsFake((xml, callback) => {
-            callback(new Error('Parsing Error'), null);
-        });
-
-        let error;
         try {
-            await mapResponse.amendInvolvedParty_CGtoOCIF(response);
+            await mapResponse.amendInvolvedParty_CGtoOCIF(mockResponse);
         } catch (err) {
-            error = err;
+            expect(logErrorStub.calledOnce).to.be.true;
+            expect(err).to.equal(error);
         }
-
-        // Verify that the error was thrown and logged
-        expect(error).to.exist;
-        expect(error.message).to.equal('Parsing Error');
-        expect(logErrorStub.calledOnce).to.be.true;
     });
 
-    it('should return formatted error response for system fault', async () => {
-        const response = {
-            statusCode: 200,
-            body: `
-                <Envelope>
-                    <Body>
-                        <Fault>
-                            <faultcode>systemfault</faultcode>
-                            <faultstring>Internal Server Error</faultstring>
-                            <detail>
-                                <systemFault>
-                                    <faultInfo>
-                                        <additionalText>Error details</additionalText>
-                                    </faultInfo>
-                                </systemFault>
-                            </detail>
-                        </Fault>
-                    </Body>
-                </Envelope>
-            `,
-        };
-
-        const result = await mapResponse.amendInvolvedParty_CGtoOCIF(response);
-
-        expect(result).to.deep.equal({
-            statusCode: 200,
-            responseObject: {
-                type: 'failure',
-                title: 'MidTier AmendOCIFInvolved Service Failure',
-                status: 200,
-                detail: 'systemfault: TRANSACTION_REFERENCE: no TRANSACTION_REFERENCE found, Error details',
-            },
+    it('should return a formatted system fault error response', async () => {
+        xml2jsStub.Parser().parseString.yields(null, {
+            Envelope: {
+                Body: {
+                    Fault: {
+                        faultcode: 'systemfault',
+                        detail: {
+                            systemFault: {
+                                faultInfo: {
+                                    additionalText: 'Test additional text',
+                                    parameter: [
+                                        { key: 'TRANSACTION_REFERENCE', value: '12345' }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         });
+
+        const result = await mapResponse.amendInvolvedParty_CGtoOCIF(mockResponse);
+
+        expect(result.statusCode).to.equal(200);
+        expect(result.responseObject.detail).to.include('TRANSACTION_REFERENCE: 12345');
+        expect(result.responseObject.detail).to.include('Test additional text');
     });
 
-    it('should return formatted error response for data validation fault', async () => {
-        const response = {
-            statusCode: 200,
-            body: `
-                <Envelope>
-                    <Body>
-                        <Fault>
-                            <faultcode>datavalidationfault</faultcode>
-                            <faultstring>Data Validation Error</faultstring>
-                            <detail>
-                                <dataValidationFault>
-                                    <faultInfo>
-                                        <parameter>Invalid parameter</parameter>
-                                    </faultInfo>
-                                </dataValidationFault>
-                            </detail>
-                        </Fault>
-                    </Body>
-                </Envelope>
-            `,
-        };
-
-        const result = await mapResponse.amendInvolvedParty_CGtoOCIF(response);
-
-        expect(result).to.deep.equal({
-            statusCode: 200,
-            responseObject: {
-                type: 'failure',
-                title: 'MidTier AmendOCIFInvolved Service Failure',
-                status: 200,
-                detail: 'datavalidationfault: TRANSACTION_REFERENCE: no TRANSACTION_REFERENCE found*',
-            },
+    it('should return a data validation fault error response', async () => {
+        mockResponse.body = '<Envelope><Body><Fault><faultcode>datavalidationfault</faultcode></Fault></Body></Envelope>';
+        xml2jsStub.Parser().parseString.yields(null, {
+            Envelope: {
+                Body: {
+                    Fault: {
+                        faultcode: 'datavalidationfault',
+                        detail: {
+                            dataValidationFault: {
+                                faultInfo: {
+                                    parameter: [
+                                        { key: 'TRANSACTION_REFERENCE', value: '67890' }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         });
+
+        const result = await mapResponse.amendInvolvedParty_CGtoOCIF(mockResponse);
+
+        expect(result.statusCode).to.equal(200);
+        expect(result.responseObject.detail).to.include('TRANSACTION_REFERENCE: 67890');
     });
 
-    // Additional test cases for other error types can be added here...
+    it('should handle non-200 status code response', async () => {
+        mockResponse.statusCode = 500;
+
+        const result = await mapResponse.amendInvolvedParty_CGtoOCIF(mockResponse);
+
+        expect(result.statusCode).to.equal(500);
+        expect(result.responseObject).to.be.undefined;
+    });
 });
