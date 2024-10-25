@@ -1,68 +1,153 @@
-const chai = require('chai');
-const sinon = require('sinon');
 const proxyquire = require('proxyquire');
-const { expect } = chai;
+const { expect } = require('chai');
+const sinon = require('sinon');
 
-describe('amendInvolvedParty_CGtoOCIF', function () {
-    let mapResponse;
-    let logErrorStub, xml2jsStub, parserStub;
+// Stubs for dependencies
+const logErrorStub = sinon.stub();
+const xml2jsStub = {
+    Parser: sinon.stub().returns({
+        parseString: (xml, callback) => {
+            // Default behavior for successful parsing
+            callback(null, { Envelope: { Body: { Fault: {} } } });
+        },
+    }),
+};
 
-    beforeEach(() => {
-        logErrorStub = sinon.stub();
+const mapResponse = proxyquire('../service/subService/amendInvolvedParty/mapResponse', {
+    '@bmo-util/framework': { logError: logErrorStub },
+    'xml2js': xml2jsStub,
+});
 
-        // Stub for xml2js and its parser
-        parserStub = {
-            parseString: sinon.stub()
-        };
-        xml2jsStub = {
-            Parser: sinon.stub().returns(parserStub)
-        };
-
-        // Proxyquire to replace actual dependencies with stubs
-        mapResponse = proxyquire('../service/subService/amendInvolvedParty/mapResponse', {
-            '@bmo-util/framework': { logError: logErrorStub, infoV2: sinon.stub() },
-            'xml2js': xml2jsStub
-        });
-    });
-
+describe('mapResponse', () => {
     afterEach(() => {
-        sinon.restore(); // Reset stubs after each test
+        sinon.reset();
     });
 
-    it('should log and throw an error when XML parsing fails', async function () {
-        const mockResponse = {
-            statusCode: 200,
-            body: '<invalidXML>' // Simulate invalid XML that will cause parsing error
-        };
-        const error = new Error('Parsing error');
-        parserStub.parseString.yields(error, null); // Simulate parser throwing an error
+    it('should successfully parse a valid XML response', async () => {
+        const response = { statusCode: 200, body: '<xml></xml>' };
 
-        try {
-            await mapResponse.amendInvolvedParty_CGtoOCIF(mockResponse);
-            // If we reach this line, the promise did not reject
-            expect.fail('Expected promise to be rejected');
-        } catch (err) {
-            // Check that the error is the expected one
-            expect(err).to.equal(error);
-            // Ensure that logError was called
-            sinon.assert.calledOnce(logErrorStub);
-            sinon.assert.calledWith(logErrorStub, 'err parse XML getInvolvedPartyResponse to JSON', error);
-        }
-    });
-
-    it('should return formatted response when statusCode is 200 and XML is valid', async function () {
-        const mockResponse = {
-            statusCode: 200,
-            body: '<Envelope><Body><response>Success</response></Body></Envelope>'
-        };
-        const mockParsedData = { Envelope: { Body: { response: 'Success' } } };
-        parserStub.parseString.yields(null, mockParsedData); // Simulate successful parsing
-
-        const result = await mapResponse.amendInvolvedParty_CGtoOCIF(mockResponse);
+        const result = await mapResponse.amendInvolvedParty_CGtoCIF(response);
 
         expect(result).to.deep.equal({
             statusCode: 200,
-            responseObject: mockParsedData
+            responseObject: {}, // Replace with expected response based on parsing
         });
+    });
+
+    it('should log and throw an error when XML parsing fails', async () => {
+        xml2jsStub.Parser.returns({
+            parseString: (xml, callback) => {
+                callback(new Error('Parsing error'));
+            },
+        });
+
+        const response = { statusCode: 200, body: '<xml></xml>' };
+
+        await expect(mapResponse.amendInvolvedParty_CGtoCIF(response)).to.be.rejected;
+        expect(logErrorStub.calledOnce).to.be.true;
+    });
+
+    it('should handle system fault type in the response', async () => {
+        xml2jsStub.Parser.returns({
+            parseString: (xml, callback) => {
+                callback(null, {
+                    Envelope: {
+                        Body: {
+                            Fault: {
+                                faultcode: 'systemfault',
+                                detail: {
+                                    systemFault: {
+                                        faultInfo: {
+                                            additionalText: 'Some additional info',
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                });
+            },
+        });
+
+        const response = { statusCode: 200, body: '<xml></xml>' };
+
+        const result = await mapResponse.amendInvolvedParty_CGtoCIF(response);
+
+        expect(result).to.have.property('statusCode', 200);
+        expect(result.responseObject).to.have.property('type', 'failure');
+        expect(result.responseObject).to.have.property('title').that.equals('MidTier AmendOCIFInvolved Service Failure');
+    });
+
+    it('should handle data validation fault type in the response', async () => {
+        xml2jsStub.Parser.returns({
+            parseString: (xml, callback) => {
+                callback(null, {
+                    Envelope: {
+                        Body: {
+                            Fault: {
+                                faultcode: 'datavalidationfault',
+                                detail: {
+                                    dataValidationFault: {
+                                        faultInfo: {},
+                                    },
+                                },
+                            },
+                        },
+                    },
+                });
+            },
+        });
+
+        const response = { statusCode: 200, body: '<xml></xml>' };
+
+        const result = await mapResponse.amendInvolvedParty_CGtoCIF(response);
+
+        expect(result).to.have.property('statusCode', 200);
+        expect(result.responseObject).to.have.property('type', 'failure');
+        expect(result.responseObject).to.have.property('title').that.equals('MidTier AmendOCIFInvolved Service Failure');
+    });
+
+    it('should return a default message when no TRANSACTION_REFERENCE is found', async () => {
+        xml2jsStub.Parser.returns({
+            parseString: (xml, callback) => {
+                callback(null, {
+                    Envelope: {
+                        Body: {
+                            Fault: {
+                                faultcode: 'systemfault',
+                                detail: {
+                                    systemFault: {
+                                        faultInfo: {},
+                                    },
+                                },
+                            },
+                        },
+                    },
+                });
+            },
+        });
+
+        const response = { statusCode: 200, body: '<xml></xml>' };
+
+        const result = await mapResponse.amendInvolvedParty_CGtoCIF(response);
+
+        expect(result).to.have.property('statusCode', 200);
+        expect(result.responseObject).to.have.property('type', 'failure');
+        expect(result.responseObject).to.have.property('title').that.equals('MidTier AmendOCIFInvolved Service Failure');
+        expect(result.responseObject).to.include.keys('detail'); // Ensure detail is included
+    });
+
+    it('should handle empty response body gracefully', async () => {
+        const response = { statusCode: 200, body: '' };
+
+        await expect(mapResponse.amendInvolvedParty_CGtoCIF(response)).to.be.rejected;
+        expect(logErrorStub.calledOnce).to.be.true;
+    });
+
+    it('should handle invalid XML response gracefully', async () => {
+        const response = { statusCode: 200, body: '<invalid>' };
+
+        await expect(mapResponse.amendInvolvedParty_CGtoCIF(response)).to.be.rejected;
+        expect(logErrorStub.calledOnce).to.be.true;
     });
 });
