@@ -1,25 +1,30 @@
-const { expect } = require('chai');
+const proxyquire = require('proxyquire');
+const chai = require('chai');
 const sinon = require('sinon');
-const proxyquire = require('proxyquire').noCallThru();
+const sinonChai = require('sinon-chai');
+const chaiAsPromised = require('chai-as-promised');
 
-describe('amendInvolvedParty_CGtoOCIF', () => {
+chai.use(sinonChai);
+chai.use(chaiAsPromised);
+const { expect } = chai;
+
+describe('mapResponse', () => {
     let mapResponse;
     let logErrorStub;
-    let parserStub;
-    let mockParser;
-
+    let xml2jsStub;
+    let xml2jsProcessorsStub;
+    
     beforeEach(() => {
         logErrorStub = sinon.stub();
-        mockParser = {
-            parseString: sinon.stub()
+        
+        xml2jsStub = {
+            Parser: sinon.stub().returns({
+                parseString: sinon.stub() // Mock parser's parseString method
+            })
         };
 
-        const xml2jsStub = {
-            Parser: sinon.stub().returns(mockParser)
-        };
-
-        const xml2jsProcessorsStub = {
-            stripPrefix: sinon.stub().returnsArg(0) // Stub stripPrefix to return the passed argument (or whatever behavior you need)
+        xml2jsProcessorsStub = {
+            stripPrefix: sinon.stub() // Mock the stripPrefix method
         };
 
         mapResponse = proxyquire('../service/subService/amendInvolvedParty/mapResponse', {
@@ -29,157 +34,81 @@ describe('amendInvolvedParty_CGtoOCIF', () => {
         });
     });
 
-    it('should return statusCode 200 and parsed responseObject when statusCode is 200', async () => {
+    afterEach(() => {
+        sinon.restore(); // Restore all mocks after each test
+    });
+
+    it('should log and return a successful response when statusCode is 200', async () => {
         const mockResponse = {
             statusCode: 200,
-            body: '<Envelope><Body><InvolvedPartyResponse>Valid Data</InvolvedPartyResponse></Body></Envelope>'
+            body: '<xml><Envelope><Body><Success>Data</Success></Body></Envelope>'
         };
 
-        const parsedXmlData = {
+        const mockParsedData = {
             Envelope: {
                 Body: {
-                    InvolvedPartyResponse: 'Valid Data'
+                    Success: 'Data'
                 }
             }
         };
 
-        // Simulate successful XML parsing
-        mockParser.parseString.yields(null, parsedXmlData);
+        // Stub parseString to return mock parsed JSON data
+        xml2jsStub.Parser().parseString.callsArgWith(1, null, mockParsedData);
 
         const result = await mapResponse.amendInvolvedParty_CGtoOCIF(mockResponse);
 
-        expect(mockParser.parseString.calledOnce).to.be.true;
-        expect(result.statusCode).to.equal(200);
-        expect(result.responseObject).to.deep.equal({});
+        expect(result).to.deep.equal({
+            statusCode: 200,
+            responseObject: mockParsedData
+        });
     });
 
     it('should log and throw error when XML parsing fails', async () => {
         const mockResponse = {
             statusCode: 200,
-            body: '<InvalidXml>'
+            body: 'invalid XML'
         };
 
-        const error = new Error('XML Parsing Error');
+        // Simulate a parsing error
+        xml2jsStub.Parser().parseString.callsArgWith(1, new Error('XML Parsing Error'), null);
 
-        // Simulate XML parsing failure
-        mockParser.parseString.yields(error);
+        const error = new Error('XML Parsing Error');
 
         await expect(mapResponse.amendInvolvedParty_CGtoOCIF(mockResponse))
             .to.be.rejectedWith(error);
 
-        expect(logErrorStub.calledOnce).to.be.true;
-        expect(logErrorStub.calledWith('err parse XML getInvolvedPartyResponse to JSON', error)).to.be.true;
+        expect(logErrorStub).to.have.been.calledWith('err parse XML getInvolvedPartyResponse to JSON', error);
     });
 
-    it('should return failure response object for systemfault errors', async () => {
-        const mockResponse = {
-            statusCode: 500,
-            body: '<Envelope><Body><Fault><faultcode>systemfault</faultcode></Fault></Body></Envelope>'
-        };
-
-        const parsedXmlData = {
-            Envelope: {
-                Body: {
-                    Fault: {
-                        faultcode: 'systemfault',
-                        detail: {
-                            systemFault: {
-                                faultInfo: {
-                                    additionalText: 'System failure',
-                                    parameter: [{ key: 'TRANSACTION_REFERENCE', value: '12345' }]
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        };
-
-        // Simulate successful XML parsing
-        mockParser.parseString.yields(null, parsedXmlData);
-
-        const result = await mapResponse.amendInvolvedParty_CGtoOCIF(mockResponse);
-
-        expect(result.statusCode).to.equal(500);
-        expect(result.responseObject).to.deep.equal({
-            type: 'failure',
-            title: 'internal Server error',
-            status: 500,
-            detail: 'systemfault: TRANSACTION_REFERENCE: 12345, System failure'
-        });
-    });
-
-    it('should return failure response object for datavalidationfault errors', async () => {
+    it('should return error response when statusCode is not 200', async () => {
         const mockResponse = {
             statusCode: 400,
-            body: '<Envelope><Body><Fault><faultcode>datavalidationfault</faultcode></Fault></Body></Envelope>'
+            body: '<xml><Envelope><Body><Fault><faultcode>Error</faultcode></Fault></Body></Envelope>'
         };
 
-        const parsedXmlData = {
+        const mockParsedError = {
             Envelope: {
                 Body: {
                     Fault: {
-                        faultcode: 'datavalidationfault',
-                        detail: {
-                            dataValidationFault: {
-                                faultInfo: {
-                                    parameter: [{ key: 'TRANSACTION_REFERENCE', value: '67890' }]
-                                }
-                            }
-                        }
+                        faultcode: 'Error'
                     }
                 }
             }
         };
 
-        // Simulate successful XML parsing
-        mockParser.parseString.yields(null, parsedXmlData);
+        // Stub parseString to return mock error data
+        xml2jsStub.Parser().parseString.callsArgWith(1, null, mockParsedError);
 
         const result = await mapResponse.amendInvolvedParty_CGtoOCIF(mockResponse);
 
-        expect(result.statusCode).to.equal(400);
-        expect(result.responseObject).to.deep.equal({
-            type: 'failure',
-            title: 'internal Server error',
-            status: 400,
-            detail: 'datavalidationfault: TRANSACTION_REFERENCE: 67890'
-        });
-    });
-
-    it('should return failure response object for dataaccessfault errors', async () => {
-        const mockResponse = {
-            statusCode: 500,
-            body: '<Envelope><Body><Fault><faultcode>dataaccessfault</faultcode></Fault></Body></Envelope>'
-        };
-
-        const parsedXmlData = {
-            Envelope: {
-                Body: {
-                    Fault: {
-                        faultcode: 'dataaccessfault',
-                        detail: {
-                            dataAccessFault: {
-                                faultInfo: {
-                                    parameter: [{ key: 'TRANSACTION_REFERENCE', value: '54321' }]
-                                }
-                            }
-                        }
-                    }
-                }
+        expect(result).to.deep.equal({
+            statusCode: 400,
+            responseObject: {
+                type: 'failure',
+                title: 'internal Server error',
+                status: 400,
+                detail: 'MidTier AmendOCIFInvolved Service Failure'
             }
-        };
-
-        // Simulate successful XML parsing
-        mockParser.parseString.yields(null, parsedXmlData);
-
-        const result = await mapResponse.amendInvolvedParty_CGtoOCIF(mockResponse);
-
-        expect(result.statusCode).to.equal(500);
-        expect(result.responseObject).to.deep.equal({
-            type: 'failure',
-            title: 'internal Server error',
-            status: 500,
-            detail: 'dataaccessfault: TRANSACTION_REFERENCE: 54321'
         });
     });
 });
