@@ -106,6 +106,8 @@ describe('mapResponse', () => {
         } catch (error) {
             expect(logErrorStub.calledOnce).to.be.true;
             expect(logErrorStub.firstCall.args[0]).to.equal("err parse XML get InvolvedPartyResponse to JSON");
+            expect(logErrorStub.firstCall.args[1]).to.be.instanceOf(Error);
+            expect(logErrorStub.firstCall.args[1].message).to.equal('Parsing Error');
             expect(error).to.be.instanceOf(Error);
             expect(error.message).to.equal('Parsing Error');
         }
