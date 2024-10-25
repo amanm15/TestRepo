@@ -38,8 +38,9 @@ describe('amendInvolvedParty_CGtoOCIF', function () {
         const error = new Error('Parsing error');
         parserStub.parseString.yields(error, null); // Simulate parser throwing an error
 
+        // Use chai-as-promised to expect a rejection
         await expect(mapResponse.amendInvolvedParty_CGtoOCIF(mockResponse))
-            .to.be.rejectedWith(Error, 'Parsing error'); // Expect rejection with error
+            .to.be.rejectedWith(error); // Expect rejection with the specific error
 
         // Ensure that logError was called
         sinon.assert.calledOnce(logErrorStub);
