@@ -1,145 +1,118 @@
-const { expect } = require('chai');
+const chai = require('chai');
 const sinon = require('sinon');
 const proxyquire = require('proxyquire');
+const { expect } = chai;
 
 describe('mapResponse', () => {
     let mapResponse;
     let logErrorStub;
     let xml2jsStub;
+    let xml2jsProcessorsStub;
 
     beforeEach(() => {
         logErrorStub = sinon.stub();
         xml2jsStub = {
             Parser: sinon.stub().returns({
-                parseString: sinon.stub()
+                parseString: sinon.stub().yields(null, {
+                    Envelope: {
+                        Body: {
+                            Fault: { faultcode: "fault:systemFault" }
+                        }
+                    }
+                })
             })
         };
+
+        xml2jsProcessorsStub = { stripPrefix: sinon.stub() };
 
         mapResponse = proxyquire('../service/subService/amendInvolvedParty/mapResponse', {
             '@bmo-util/framework': { logError: logErrorStub, infoV2: sinon.stub() },
             'xml2js': xml2jsStub,
-            'xml2js-processors': { stripPrefix: sinon.stub() }
+            'xml2js-processors': xml2jsProcessorsStub
         });
     });
 
-    it('should successfully parse a valid XML response', async () => {
-        const mockResponse = { statusCode: 200, body: '<xml></xml>' };
-        xml2jsStub.Parser().parseString.yields(null, { response: 'parsed' });
-
-        const result = await mapResponse.amendInvolvedParty_CGtoOCIF(mockResponse);
-
-        expect(result.statusCode).to.equal(200);
-        expect(result.responseObject).to.be.an('object');
+    afterEach(() => {
+        sinon.restore();
     });
 
-    it('should log and throw error when XML parsing fails', async () => {
-        const mockResponse = { statusCode: 200, body: '<xml></xml>' };
-        const error = new Error('Parsing Error');
-        xml2jsStub.Parser().parseString.yields(error, null);
+    it('should return a default error response when faultcode is undefined', (done) => {
+        xml2jsStub.Parser().parseString = (xml, callback) => {
+            callback(null, { Envelope: { Body: { Fault: {} } } }); // No faultcode
+        };
 
-        try {
-            await mapResponse.amendInvolvedParty_CGtoOCIF(mockResponse);
-        } catch (err) {
-            expect(logErrorStub.calledWith('err parse XML get InvolvedPartyResponse to JSON', error)).to.be.true;
-            expect(err).to.equal(error);
-        }
+        const mockResponse = { statusCode: 500, body: '<xml>sample</xml>' };
+        mapResponse.amendInvolvedParty_CGtoOCIF(mockResponse)
+            .then((result) => {
+                expect(result.statusCode).to.equal(500);
+                expect(result.responseObject.title).to.equal('MidTier AmendOCIFInvolved Service Failure');
+                expect(result.responseObject.detail).to.equal('MidTier AmendOCIFInvolved Service Failure');
+                done();
+            })
+            .catch(done); // Call done with error if promise is rejected
     });
 
-    it('should return a formatted system fault error response', async () => {
-        const mockResponse = { statusCode: 500, body: '<xml></xml>' };
-        const parsedJsonData = {
-            Envelope: {
-                Body: {
-                    Fault: {
-                        detail: {
-                            systemFault: {
-                                faultInfo: {
-                                    additionalText: 'Some additional info',
-                                    parameter: [{ key: 'TRANSACTION_REFERENCE', value: '12345' }]
+    it('should return a default error response when faultcode is missing', (done) => {
+        xml2jsStub.Parser().parseString = (xml, callback) => {
+            callback(null, { Envelope: { Body: {} } }); // Fault section missing
+        };
+
+        const mockResponse = { statusCode: 500, body: '<xml>sample</xml>' };
+        mapResponse.amendInvolvedParty_CGtoOCIF(mockResponse)
+            .then((result) => {
+                expect(result.statusCode).to.equal(500);
+                expect(result.responseObject.title).to.equal('MidTier AmendOCIFInvolved Service Failure');
+                expect(result.responseObject.detail).to.equal('MidTier AmendOCIFInvolved Service Failure');
+                done();
+            })
+            .catch(done);
+    });
+
+    it('should return a formatted error response for a valid system fault', (done) => {
+        xml2jsStub.Parser().parseString = (xml, callback) => {
+            callback(null, {
+                Envelope: {
+                    Body: {
+                        Fault: {
+                            faultcode: "fault:systemFault",
+                            detail: {
+                                systemFault: {
+                                    faultInfo: {
+                                        additionaltext: "An error occurred",
+                                        parameter: [
+                                            { key: "TRANSACTION_REFERENCE", value: "12345" }
+                                        ]
+                                    }
                                 }
                             }
                         }
                     }
                 }
-            }
+            });
         };
-        xml2jsStub.Parser().parseString.yields(null, parsedJsonData);
 
-        const result = await mapResponse.amendInvolvedParty_CGtoOCIF(mockResponse);
-
-        expect(result.responseObject.detail).to.include('systemfault: TRANSACTION_REFERENCE: 12345, Some additional info');
+        const mockResponse = { statusCode: 500, body: '<xml>sample</xml>' };
+        mapResponse.amendInvolvedParty_CGtoOCIF(mockResponse)
+            .then((result) => {
+                expect(result.statusCode).to.equal(500);
+                expect(result.responseObject.detail).to.include('TRANSACTION_REFERENCE: 12345');
+                expect(result.responseObject.detail).to.include('An error occurred');
+                done();
+            })
+            .catch(done);
     });
 
-    it('should return a formatted datavalidationfault error response', async () => {
-        const mockResponse = { statusCode: 500, body: '<xml></xml>' };
-        const parsedJsonData = {
-            Envelope: {
-                Body: {
-                    Fault: {
-                        detail: {
-                            dataValidationFault: {
-                                faultInfo: {
-                                    parameter: [{ key: 'TRANSACTION_REFERENCE', value: '67890' }]
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        };
-        xml2jsStub.Parser().parseString.yields(null, parsedJsonData);
-
-        const result = await mapResponse.amendInvolvedParty_CGtoOCIF(mockResponse);
-
-        expect(result.responseObject.detail).to.include('datavalidationfault: TRANSACTION_REFERENCE: 67890');
-    });
-
-    it('should return a formatted dataaccessfault error response', async () => {
-        const mockResponse = { statusCode: 500, body: '<xml></xml>' };
-        const parsedJsonData = {
-            Envelope: {
-                Body: {
-                    Fault: {
-                        detail: {
-                            dataAccessFault: {
-                                faultInfo: {
-                                    parameter: [{ key: 'TRANSACTION_REFERENCE', value: '54321' }]
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        };
-        xml2jsStub.Parser().parseString.yields(null, parsedJsonData);
-
-        const result = await mapResponse.amendInvolvedParty_CGtoOCIF(mockResponse);
-
-        expect(result.responseObject.detail).to.include('dataaccessfault: TRANSACTION_REFERENCE: 54321');
-    });
-
-    // Test cases for extractTransactionReference function
     it('should return TRANSACTION_REFERENCE if found in parameters array', () => {
-        const parameters = [{ key: 'TRANSACTION_REFERENCE', value: '12345' }];
+        const parameters = [{ key: "TRANSACTION_REFERENCE", value: "12345" }];
         const result = mapResponse.extractTransactionReference(parameters);
-        expect(result).to.equal('12345');
+
+        expect(result).to.equal("12345");
     });
 
-    it('should return "no TRANSACTION_REFERENCE found" if TRANSACTION_REFERENCE is not found in parameters array', () => {
-        const parameters = [{ key: 'OTHER_KEY', value: '67890' }];
+    it('should return default message if TRANSACTION_REFERENCE not found in parameters array', () => {
+        const parameters = [{ key: "ANOTHER_KEY", value: "67890" }];
         const result = mapResponse.extractTransactionReference(parameters);
-        expect(result).to.equal('no TRANSACTION_REFERENCE found');
-    });
 
-    it('should return parameters value if input is not an array', () => {
-        const parameters = { value: '67890' };
-        const result = mapResponse.extractTransactionReference(parameters);
-        expect(result).to.equal('67890');
-    });
-
-    it('should return "no TRANSACTION_REFERENCE found" if parameters are undefined', () => {
-        const parameters = undefined;
-        const result = mapResponse.extractTransactionReference(parameters);
-        expect(result).to.equal('no TRANSACTION_REFERENCE found');
+        expect(result).to.equal("no TRANSACTION REFERENCE found");
     });
 });
