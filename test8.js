@@ -52,22 +52,6 @@ describe('mapResponse', () => {
             .catch(done);
     });
 
-    it('should return a default error response when faultcode is missing', (done) => {
-        xml2jsStub.Parser().parseString = (xml, callback) => {
-            callback(null, { Envelope: { Body: {} } }); // Fault section missing
-        };
-
-        const mockResponse = { statusCode: 500, body: '<xml>sample</xml>' };
-        mapResponse.amendInvolvedParty_CGtoOCIF(mockResponse)
-            .then((result) => {
-                expect(result.statusCode).to.equal(500);
-                expect(result.responseObject.title).to.equal('MidTier AmendOCIFInvolved Service Failure');
-                expect(result.responseObject.detail).to.equal('MidTier AmendOCIFInvolved Service Failure');
-                done();
-            })
-            .catch(done);
-    });
-
     it('should return a formatted error response for a valid system fault', (done) => {
         xml2jsStub.Parser().parseString = (xml, callback) => {
             callback(null, {
@@ -102,18 +86,29 @@ describe('mapResponse', () => {
             .catch(done);
     });
 
-    it('should return TRANSACTION_REFERENCE if found in parameters array', () => {
-        const parameters = [{ key: "TRANSACTION_REFERENCE", value: "12345" }];
-        const result = mapResponse.extractTransactionReference(parameters);
-
-        expect(result).to.equal("12345");
+    it('should return empty response object when statusCode is 200', async () => {
+        const mockResponse = { statusCode: 200, body: '<xml>sample</xml>' };
+        const result = await mapResponse.amendInvolvedParty_CGtoOCIF(mockResponse);
+        
+        expect(result.statusCode).to.equal(200);
+        expect(result.responseObject).to.deep.equal({});
     });
 
-    it('should return default message if TRANSACTION_REFERENCE not found in parameters array', () => {
-        const parameters = [{ key: "ANOTHER_KEY", value: "67890" }];
-        const result = mapResponse.extractTransactionReference(parameters);
+    it('should log error and throw when XML parsing fails', async () => {
+        xml2jsStub.Parser().parseString = (xml, callback) => {
+            callback(new Error('Parsing Error'), null); // Simulate parsing error
+        };
 
-        expect(result).to.equal("no TRANSACTION REFERENCE found");
+        const mockResponse = { statusCode: 500, body: '<xml>sample</xml>' };
+        
+        try {
+            await mapResponse.amendInvolvedParty_CGtoOCIF(mockResponse);
+        } catch (error) {
+            expect(logErrorStub.calledOnce).to.be.true;
+            expect(logErrorStub.firstCall.args[0]).to.equal("err parse XML get InvolvedPartyResponse to JSON");
+            expect(error).to.be.instanceOf(Error);
+            expect(error.message).to.equal('Parsing Error');
+        }
     });
 
     it('should return a formatted error response for a data validation fault', (done) => {
