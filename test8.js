@@ -18,9 +18,14 @@ describe('amendInvolvedParty_CGtoOCIF', () => {
             Parser: sinon.stub().returns(mockParser)
         };
 
+        const xml2jsProcessorsStub = {
+            stripPrefix: sinon.stub().returnsArg(0) // Stub stripPrefix to return the passed argument (or whatever behavior you need)
+        };
+
         mapResponse = proxyquire('../service/subService/amendInvolvedParty/mapResponse', {
             '@bmo-util/framework': { logError: logErrorStub, infoV2: sinon.stub() }, // Stub logError and infoV2
-            'xml2js': xml2jsStub // Stub xml2js to use the mock parser
+            'xml2js': xml2jsStub, // Stub xml2js to use the mock parser
+            'xml2js-processors': xml2jsProcessorsStub // Mock the xml2js-processors and the stripPrefix function
         });
     });
 
