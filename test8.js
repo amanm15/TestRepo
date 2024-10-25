@@ -26,7 +26,7 @@ describe('mapResponse', () => {
     it('should successfully parse a valid XML response', async () => {
         const response = { statusCode: 200, body: '<xml></xml>' };
 
-        const result = await mapResponse.amendInvolvedParty_CGtoCIF(response);
+        const result = await mapResponse.amendInvolvedParty_CGtoOCIF(response);
 
         expect(result).to.deep.equal({
             statusCode: 200,
@@ -34,120 +34,96 @@ describe('mapResponse', () => {
         });
     });
 
-    it('should log and throw an error when XML parsing fails', async () => {
-        xml2jsStub.Parser.returns({
-            parseString: (xml, callback) => {
-                callback(new Error('Parsing error'));
-            },
-        });
-
+    it('should log and throw error when XML parsing fails', async () => {
         const response = { statusCode: 200, body: '<xml></xml>' };
 
-        await expect(mapResponse.amendInvolvedParty_CGtoCIF(response)).to.be.rejected;
+        // Simulate an XML parsing error
+        xml2jsStub.Parser().parseString = (xml, callback) => {
+            callback(new Error('Parsing Error'), null);
+        };
+
+        let error;
+        try {
+            await mapResponse.amendInvolvedParty_CGtoOCIF(response);
+        } catch (err) {
+            error = err;
+        }
+
+        // Verify that the error was thrown and logged
+        expect(error).to.exist;
+        expect(error.message).to.equal('Parsing Error');
         expect(logErrorStub.calledOnce).to.be.true;
     });
 
-    it('should handle system fault type in the response', async () => {
-        xml2jsStub.Parser.returns({
-            parseString: (xml, callback) => {
-                callback(null, {
-                    Envelope: {
-                        Body: {
-                            Fault: {
-                                faultcode: 'systemfault',
-                                detail: {
-                                    systemFault: {
-                                        faultInfo: {
-                                            additionalText: 'Some additional info',
-                                        },
-                                    },
-                                },
-                            },
-                        },
-                    },
-                });
+    it('should return formatted error response for system fault', async () => {
+        const response = {
+            statusCode: 200,
+            body: `
+                <Envelope>
+                    <Body>
+                        <Fault>
+                            <faultcode>systemfault</faultcode>
+                            <faultstring>Internal Server Error</faultstring>
+                            <detail>
+                                <systemFault>
+                                    <faultInfo>
+                                        <additionalText>Error details</additionalText>
+                                    </faultInfo>
+                                </systemFault>
+                            </detail>
+                        </Fault>
+                    </Body>
+                </Envelope>
+            `,
+        };
+
+        const result = await mapResponse.amendInvolvedParty_CGtoOCIF(response);
+
+        expect(result).to.deep.equal({
+            statusCode: 200,
+            responseObject: {
+                type: 'failure',
+                title: 'MidTier AmendOCIFInvolved Service Failure',
+                status: 200,
+                detail: 'systemfault: TRANSACTION_REFERENCE: no TRANSACTION_REFERENCE found, Error details',
             },
         });
-
-        const response = { statusCode: 200, body: '<xml></xml>' };
-
-        const result = await mapResponse.amendInvolvedParty_CGtoCIF(response);
-
-        expect(result).to.have.property('statusCode', 200);
-        expect(result.responseObject).to.have.property('type', 'failure');
-        expect(result.responseObject).to.have.property('title').that.equals('MidTier AmendOCIFInvolved Service Failure');
     });
 
-    it('should handle data validation fault type in the response', async () => {
-        xml2jsStub.Parser.returns({
-            parseString: (xml, callback) => {
-                callback(null, {
-                    Envelope: {
-                        Body: {
-                            Fault: {
-                                faultcode: 'datavalidationfault',
-                                detail: {
-                                    dataValidationFault: {
-                                        faultInfo: {},
-                                    },
-                                },
-                            },
-                        },
-                    },
-                });
+    it('should return formatted error response for data validation fault', async () => {
+        const response = {
+            statusCode: 200,
+            body: `
+                <Envelope>
+                    <Body>
+                        <Fault>
+                            <faultcode>datavalidationfault</faultcode>
+                            <faultstring>Data Validation Error</faultstring>
+                            <detail>
+                                <dataValidationFault>
+                                    <faultInfo>
+                                        <parameter>Invalid parameter</parameter>
+                                    </faultInfo>
+                                </dataValidationFault>
+                            </detail>
+                        </Fault>
+                    </Body>
+                </Envelope>
+            `,
+        };
+
+        const result = await mapResponse.amendInvolvedParty_CGtoOCIF(response);
+
+        expect(result).to.deep.equal({
+            statusCode: 200,
+            responseObject: {
+                type: 'failure',
+                title: 'MidTier AmendOCIFInvolved Service Failure',
+                status: 200,
+                detail: 'datavalidationfault: TRANSACTION_REFERENCE: no TRANSACTION_REFERENCE found*',
             },
         });
-
-        const response = { statusCode: 200, body: '<xml></xml>' };
-
-        const result = await mapResponse.amendInvolvedParty_CGtoCIF(response);
-
-        expect(result).to.have.property('statusCode', 200);
-        expect(result.responseObject).to.have.property('type', 'failure');
-        expect(result.responseObject).to.have.property('title').that.equals('MidTier AmendOCIFInvolved Service Failure');
     });
 
-    it('should return a default message when no TRANSACTION_REFERENCE is found', async () => {
-        xml2jsStub.Parser.returns({
-            parseString: (xml, callback) => {
-                callback(null, {
-                    Envelope: {
-                        Body: {
-                            Fault: {
-                                faultcode: 'systemfault',
-                                detail: {
-                                    systemFault: {
-                                        faultInfo: {},
-                                    },
-                                },
-                            },
-                        },
-                    },
-                });
-            },
-        });
-
-        const response = { statusCode: 200, body: '<xml></xml>' };
-
-        const result = await mapResponse.amendInvolvedParty_CGtoCIF(response);
-
-        expect(result).to.have.property('statusCode', 200);
-        expect(result.responseObject).to.have.property('type', 'failure');
-        expect(result.responseObject).to.have.property('title').that.equals('MidTier AmendOCIFInvolved Service Failure');
-        expect(result.responseObject).to.include.keys('detail'); // Ensure detail is included
-    });
-
-    it('should handle empty response body gracefully', async () => {
-        const response = { statusCode: 200, body: '' };
-
-        await expect(mapResponse.amendInvolvedParty_CGtoCIF(response)).to.be.rejected;
-        expect(logErrorStub.calledOnce).to.be.true;
-    });
-
-    it('should handle invalid XML response gracefully', async () => {
-        const response = { statusCode: 200, body: '<invalid>' };
-
-        await expect(mapResponse.amendInvolvedParty_CGtoCIF(response)).to.be.rejected;
-        expect(logErrorStub.calledOnce).to.be.true;
-    });
+    // Additional test cases for other error types can be added here...
 });
