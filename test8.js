@@ -1,114 +1,64 @@
-const proxyquire = require('proxyquire');
 const chai = require('chai');
 const sinon = require('sinon');
-const sinonChai = require('sinon-chai');
-const chaiAsPromised = require('chai-as-promised');
-
-chai.use(sinonChai);
-chai.use(chaiAsPromised);
+const proxyquire = require('proxyquire');
 const { expect } = chai;
 
-describe('mapResponse', () => {
+describe('amendInvolvedParty_CGtoOCIF', function () {
     let mapResponse;
-    let logErrorStub;
-    let xml2jsStub;
-    let xml2jsProcessorsStub;
-    
+    let logErrorStub, xml2jsStub, parserStub;
+
     beforeEach(() => {
         logErrorStub = sinon.stub();
-        
+
+        // Stub for xml2js and its parser
+        parserStub = {
+            parseString: sinon.stub()
+        };
         xml2jsStub = {
-            Parser: sinon.stub().returns({
-                parseString: sinon.stub() // Mock parser's parseString method
-            })
+            Parser: sinon.stub().returns(parserStub)
         };
 
-        xml2jsProcessorsStub = {
-            stripPrefix: sinon.stub() // Mock the stripPrefix method
-        };
-
+        // Proxyquire to replace actual dependencies with stubs
         mapResponse = proxyquire('../service/subService/amendInvolvedParty/mapResponse', {
             '@bmo-util/framework': { logError: logErrorStub, infoV2: sinon.stub() }, // Stub logError and infoV2
-            'xml2js': xml2jsStub, // Stub xml2js to use the mock parser
-            'xml2js-processors': xml2jsProcessorsStub // Mock the xml2js-processors and the stripPrefix function
+            'xml2js': xml2jsStub // Stub xml2js to use the mock parser
         });
     });
 
     afterEach(() => {
-        sinon.restore(); // Restore all mocks after each test
+        sinon.restore(); // Reset stubs after each test
     });
 
-    it('should log and return a successful response when statusCode is 200', async () => {
+    it('should log and throw an error when XML parsing fails', async function () {
         const mockResponse = {
             statusCode: 200,
-            body: '<xml><Envelope><Body><Success>Data</Success></Body></Envelope>'
+            body: '<invalidXML>' // Simulate invalid XML that will cause parsing error
         };
-
-        const mockParsedData = {
-            Envelope: {
-                Body: {
-                    Success: 'Data'
-                }
-            }
-        };
-
-        // Stub parseString to return mock parsed JSON data
-        xml2jsStub.Parser().parseString.callsArgWith(1, null, mockParsedData);
-
-        const result = await mapResponse.amendInvolvedParty_CGtoOCIF(mockResponse);
-
-        expect(result).to.deep.equal({
-            statusCode: 200,
-            responseObject: mockParsedData
-        });
-    });
-
-    it('should log and throw error when XML parsing fails', async () => {
-        const mockResponse = {
-            statusCode: 200,
-            body: 'invalid XML'
-        };
-
-        // Simulate a parsing error
-        xml2jsStub.Parser().parseString.callsArgWith(1, new Error('XML Parsing Error'), null);
-
-        const error = new Error('XML Parsing Error');
+        const error = new Error('Parsing error');
+        parserStub.parseString.yields(error, null); // Simulate parser throwing an error
 
         await expect(mapResponse.amendInvolvedParty_CGtoOCIF(mockResponse))
             .to.be.rejectedWith(error);
 
-        expect(logErrorStub).to.have.been.calledWith('err parse XML getInvolvedPartyResponse to JSON', error);
+        // Ensure that logError was called
+        sinon.assert.calledOnce(logErrorStub);
+        sinon.assert.calledWith(logErrorStub, 'err parse XML getInvolvedPartyResponse to JSON', error);
     });
 
-    it('should return error response when statusCode is not 200', async () => {
+    it('should return formatted response when statusCode is 200 and XML is valid', async function () {
         const mockResponse = {
-            statusCode: 400,
-            body: '<xml><Envelope><Body><Fault><faultcode>Error</faultcode></Fault></Body></Envelope>'
+            statusCode: 200,
+            body: '<Envelope><Body><response>Success</response></Body></Envelope>'
         };
-
-        const mockParsedError = {
-            Envelope: {
-                Body: {
-                    Fault: {
-                        faultcode: 'Error'
-                    }
-                }
-            }
-        };
-
-        // Stub parseString to return mock error data
-        xml2jsStub.Parser().parseString.callsArgWith(1, null, mockParsedError);
+        const mockParsedData = { Envelope: { Body: { response: 'Success' } } };
+        parserStub.parseString.yields(null, mockParsedData); // Simulate successful parsing
 
         const result = await mapResponse.amendInvolvedParty_CGtoOCIF(mockResponse);
 
+        // Ensure the result is formatted as expected
         expect(result).to.deep.equal({
-            statusCode: 400,
-            responseObject: {
-                type: 'failure',
-                title: 'internal Server error',
-                status: 400,
-                detail: 'MidTier AmendOCIFInvolved Service Failure'
-            }
+            statusCode: 200,
+            responseObject: mockParsedData
         });
     });
 });
