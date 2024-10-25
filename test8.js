@@ -2,7 +2,6 @@ const chai = require('chai');
 const sinon = require('sinon');
 const proxyquire = require('proxyquire');
 const { expect } = chai;
-chai.use(require('chai-as-promised'));
 
 describe('amendInvolvedParty_CGtoOCIF', function () {
     let mapResponse;
@@ -38,13 +37,17 @@ describe('amendInvolvedParty_CGtoOCIF', function () {
         const error = new Error('Parsing error');
         parserStub.parseString.yields(error, null); // Simulate parser throwing an error
 
-        // Use chai-as-promised to expect a rejection
-        await expect(mapResponse.amendInvolvedParty_CGtoOCIF(mockResponse))
-            .to.be.rejectedWith(error); // Expect rejection with the specific error
-
-        // Ensure that logError was called
-        sinon.assert.calledOnce(logErrorStub);
-        sinon.assert.calledWith(logErrorStub, 'err parse XML getInvolvedPartyResponse to JSON', error);
+        try {
+            await mapResponse.amendInvolvedParty_CGtoOCIF(mockResponse);
+            // If we reach this line, the promise did not reject
+            expect.fail('Expected promise to be rejected');
+        } catch (err) {
+            // Check that the error is the expected one
+            expect(err).to.equal(error);
+            // Ensure that logError was called
+            sinon.assert.calledOnce(logErrorStub);
+            sinon.assert.calledWith(logErrorStub, 'err parse XML getInvolvedPartyResponse to JSON', error);
+        }
     });
 
     it('should return formatted response when statusCode is 200 and XML is valid', async function () {
