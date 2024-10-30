@@ -46,8 +46,9 @@ describe("mapForeignIndiciaList", function () {
     expect(foreignIndiciaDetails).to.have.property("InformationCollectorID", "CollectorID");
     expect(foreignIndiciaDetails).to.have.property("InformationCollectorName", "CollectorName");
 
-    // Check nested sourceObjectRef mapping
-    expect(foreignIndiciaDetails).to.have.property("RecordAudit").that.includes({
+    // Check if RecordAudit exists before asserting on its contents
+    expect(foreignIndiciaDetails).to.have.property("RecordAudit");
+    expect(foreignIndiciaDetails.RecordAudit).to.include({
       LastMaintainedDate: "2023-10-30-12.34.56.789000",
     });
     expect(foreignIndiciaDetails.LastMaintainedUser).to.have.property("userID", "testUser");
