@@ -1,0 +1,28 @@
+describe("mapForeignIndiciaList", function () {
+  it("should map foreign indicia list using mapperHelper", function () {
+    const data = { 
+      foreignIndicia: [
+        { 
+          action: "ADD", 
+          foreignTaxCountry: "US",
+          sourceObjectRef: [{ 
+            objectRef: [{ refKeyUser: "testUser" }] 
+          }],
+          lastMaintainedDate: "2023-10-30T12:34:56.789Z",
+          informationCollectedTimestamp: "2023-10-30T12:34:56.789Z",
+          transitNumber: "1234",
+          foreignTaxIdentifier: "ID-123",
+          classificationScheme: "Scheme1",
+          foreignTaxCountry: "US",
+          owningIprt: "OwnIPRT",
+          informationCollectorId: "CollectorID",
+          informationCollectorName: "CollectorName"
+        }
+      ]
+    };
+
+    const result = mapRequest.mapForeignIndiciaList(data);
+    expect(result).to.have.property("IsForeignIndiciaList", true);
+    expect(result.foreignIndiciaData).to.have.property("AmendForeignIndicia").that.is.an("array");
+  });
+});
