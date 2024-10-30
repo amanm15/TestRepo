@@ -1,12 +1,15 @@
 describe("mapForeignIndiciaList", function () {
-  it("should map foreign indicia list using mapperHelper", function () {
+  it("should map foreign indicia list using mapperHelper with all relevant properties", function () {
     const data = { 
       foreignIndicia: [
         { 
           action: "ADD", 
           foreignTaxCountry: "US",
           sourceObjectRef: [{ 
-            objectRef: [{ refKeyUser: "testUser" }] 
+            objectRef: [{ 
+              refKeyUser: "testUser",
+              refKeyValue: "identifierValue"
+            }]
           }],
           lastMaintainedDate: "2023-10-30T12:34:56.789Z",
           informationCollectedTimestamp: "2023-10-30T12:34:56.789Z",
@@ -16,13 +19,20 @@ describe("mapForeignIndiciaList", function () {
           foreignTaxCountry: "US",
           owningIprt: "OwnIPRT",
           informationCollectorId: "CollectorID",
-          informationCollectorName: "CollectorName"
+          informationCollectorName: "CollectorName",
+          action: "ADD" // Action to check specific mapper conditions
         }
       ]
     };
 
     const result = mapRequest.mapForeignIndiciaList(data);
+    
     expect(result).to.have.property("IsForeignIndiciaList", true);
     expect(result.foreignIndiciaData).to.have.property("AmendForeignIndicia").that.is.an("array");
-  });
-});
+
+    // Verify mapping results within AmendForeignIndicia
+    const mappedIndicia = result.foreignIndiciaData.AmendForeignIndicia[0];
+    expect(mappedIndicia).to.have.property("Action", "ADD");
+    expect(mappedIndicia.ForeignIndicia).to.have.property("TransitNumber", "1234");
+    expect(mappedIndicia.ForeignIndicia).to.have.property("ForeignTaxCountry", "US");
+    expect(mappedIndicia.ForeignIndicia).
