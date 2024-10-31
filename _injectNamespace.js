@@ -1,5 +1,5 @@
-const { expect } = require("chai");
-const mapRequest = require("../path/to/mapRequest.js"); // Adjust path as needed
+const { expect } = require('chai');
+const mapRequest = require('../path/to/mapRequest'); // Adjust the path as needed
 
 describe("_injectNamespace", function () {
   it("should handle array values in the payload", function () {
@@ -52,6 +52,16 @@ describe("_injectNamespace", function () {
 
     const result = mapRequest._injectNamespace(template, payload);
 
+    expect(result).to.deep.equal({});
+  });
+
+  it("should return an empty object for undefined inputs", function () {
+    const result = mapRequest._injectNamespace(undefined, undefined);
+    expect(result).to.deep.equal({});
+  });
+
+  it("should return an empty object for null inputs", function () {
+    const result = mapRequest._injectNamespace(null, null);
     expect(result).to.deep.equal({});
   });
 });
