@@ -55,3 +55,51 @@ describe("mapForeignTaxTrustList", function () {
     expect(result).to.have.property("IsForeignTaxRole", false);
   });
 });
+
+
+describe("injectPayloadNamespace", function () {
+  let templateFilename, payload;
+
+  beforeEach(() => {
+    // Reset the cache and initialize variables before each test
+    mapRequest.__set__("SOAPTemplateCache", {}); // Clear cache (depends on your testing framework for resetting private variables)
+    templateFilename = "testTemplate.xml";
+    payload = { someKey: "someValue" };
+  });
+
+  it("should use cached template if available in SOAPTemplateCache", async function () {
+    // Setup: Populate SOAPTemplateCache with mock data
+    mapRequest.__set__("SOAPTemplateCache", {
+      [templateFilename]: {
+        template: { mockTemplateKey: "mockTemplateValue" },
+        xmlnsAttributes: [{ name: "xmlns:mock", value: "http://mocknamespace" }],
+        rootNS: "mockRootNS"
+      }
+    });
+
+    // Act: Call the function
+    const result = await mapRequest.injectPayloadNamespace(templateFilename, payload);
+
+    // Assertions: Check if cached values were used
+    expect(result).to.have.property("payloadWithNS").that.is.an("object");
+    expect(result).to.have.property("xmlnsAttributes").that.is.an("array").with.lengthOf(1);
+    expect(result.xmlnsAttributes[0]).to.include({ name: "xmlns:mock", value: "http://mocknamespace" });
+    expect(result).to.have.property("rootNS", "mockRootNS");
+  });
+
+  it("should retrieve and parse template when not cached", async function () {
+    // Mock for case where the template is not cached
+    const parseStringPromiseStub = sinon.stub(require("xml2js"), "parseStringPromise").resolves({
+      "soapenv:Envelope": {
+        "$": { "xmlns:mock": "http://mocknamespace" },
+        "soapenv:Body": [{ "mockRequest": [{ mockElement: "mockValue" }] }]
+      }
+    });
+
+    const result = await mapRequest.injectPayloadNamespace(templateFilename, payload);
+
+    // Assertions to confirm parseStringPromise was called
+    expect(parseStringPromiseStub.calledOnce).to.be.true;
+    parseStringPromiseStub.restore(); // Clean up stub
+  });
+});
