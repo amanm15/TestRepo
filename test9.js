@@ -168,6 +168,15 @@ describe("injectPayloadNamespace", function () {
   beforeEach(() => {
     templateFilename = "testTemplate.xml";
     payload = { sampleKey: "sampleValue" };
+
+    // Manually set the cache before each test case
+    mapRequest.SOAPTemplateCache = {
+      [templateFilename]: {
+        template: { cachedKey: "cachedValue" },
+        xmlnsAttributes: [{ name: "xmlns:cached", value: "http://cachednamespace" }],
+        rootNS: "cachedRootNS",
+      }
+    };
   });
 
   afterEach(() => {
@@ -175,6 +184,9 @@ describe("injectPayloadNamespace", function () {
   });
 
   it("should parse and cache the template when SOAPTemplateCache is empty", async function () {
+    // Clear the cache to simulate an empty cache scenario
+    mapRequest.SOAPTemplateCache = {};
+
     const parseStringPromiseStub = sinon.stub(xml2js, "parseStringPromise").resolves({
       "soapenv:Envelope": {
         "$": { "xmlns:mock": "http://mocknamespace" },
@@ -192,26 +204,23 @@ describe("injectPayloadNamespace", function () {
   });
 
   it("should use cached template if SOAPTemplateCache is not empty", async function () {
-    // Stub the SOAPTemplateCache with mock data to simulate cache behavior
-    const cacheStub = sinon.stub(mapRequest, "SOAPTemplateCache").value({
-      [templateFilename]: {
-        template: { cachedKey: "cachedValue" },
-        xmlnsAttributes: [{ name: "xmlns:cached", value: "http://cachednamespace" }],
-        rootNS: "cachedRootNS",
-      }
-    });
+    const injectNamespaceSpy = sinon.spy(mapRequest, "_injectNamespace");
 
-    const injectNamespaceStub = sinon.stub(mapRequest, "_injectNamespace").returns({ injected: "value" });
     const result = await mapRequest.injectPayloadNamespace(templateFilename, payload);
 
+    // Confirm that the cached data is returned without calling parseStringPromise
     expect(result.xmlnsAttributes).to.deep.include({ name: "xmlns:cached", value: "http://cachednamespace" });
     expect(result.rootNS).to.equal("cachedRootNS");
 
-    injectNamespaceStub.restore();
-    cacheStub.restore();
+    // Ensure _injectNamespace was called (indicating cache usage)
+    expect(injectNamespaceSpy.called).to.be.true;
+    injectNamespaceSpy.restore();
   });
 
   it("should throw an error if template parsing fails", async function () {
+    // Clear cache to trigger parsing and test error handling
+    mapRequest.SOAPTemplateCache = {};
+
     const parseStringPromiseStub = sinon.stub(xml2js, "parseStringPromise").rejects(new Error("Parsing Error"));
     await expect(mapRequest.injectPayloadNamespace(templateFilename, payload)).to.be.rejectedWith("Parsing Error");
     parseStringPromiseStub.restore();
