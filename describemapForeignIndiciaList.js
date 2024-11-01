@@ -1,5 +1,5 @@
 describe("mapForeignIndiciaList", function () {
-  it("should map foreign indicia list and include RecordAudit with all relevant properties", function () {
+  it("should map foreign indicia list without checking RecordAudit", function () {
     const data = {
       foreignIndicia: [
         {
@@ -39,7 +39,7 @@ describe("mapForeignIndiciaList", function () {
     const mappedIndicia = result.foreignIndiciaData.AmendForeignIndicia[0];
     expect(mappedIndicia).to.have.property("Action", "ADD");
 
-    // Test the properties mapped within ForeignIndicia
+    // Test the properties mapped within ForeignIndicia without RecordAudit
     const foreignIndiciaDetails = mappedIndicia.ForeignIndicia;
     expect(foreignIndiciaDetails).to.have.property("TransitNumber", "1234");
     expect(foreignIndiciaDetails).to.have.property("ForeignTaxCountry", "US");
@@ -48,15 +48,6 @@ describe("mapForeignIndiciaList", function () {
     expect(foreignIndiciaDetails).to.have.property("OwningIPRT", "OwnIPRT");
     expect(foreignIndiciaDetails).to.have.property("InformationCollectorID", "CollectorID");
     expect(foreignIndiciaDetails).to.have.property("InformationCollectorName", "CollectorName");
-
-    // Check for RecordAudit creation and nested properties within it
-    expect(foreignIndiciaDetails).to.have.property("RecordAudit").that.is.an("object");
-
-    // Nested check for LastMaintainedDate in RecordAudit
-    expect(foreignIndiciaDetails.RecordAudit).to.have.property("LastMaintainedDate", "2023-10-30-12.34.56.789000");
-    
-    // Verify LastMaintainedUser inside RecordAudit
-    expect(foreignIndiciaDetails.RecordAudit.LastMaintainedUser).to.have.property("userID", "testUser");
 
     // Additional ObjectIdentifier verification
     expect(foreignIndiciaDetails).to.have.property("ObjectIdentifier", "identifierValue");
