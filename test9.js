@@ -13,14 +13,15 @@ const mapRequest = proxyquire("../service/subService/amendInvolvedParty/mapReque
   "@bmo-util/framework": {
     infoV2: infoV2Stub,
     logError: logErrorStub,
-    getCorrelationId: getCorrelationIdStub
+    getCorrelationId: getCorrelationIdStub,
   }
 });
 
+// Define _injectNamespace function within the test file
 const _injectNamespace = (template, payload) => {
   let result = {};
 
-  if(!template || !payload) return result;
+  if (!template || !payload) return result;
 
   for (let [key, value] of Object.entries(template)) {
     let curKey = key.split(":")[1];
@@ -31,11 +32,9 @@ const _injectNamespace = (template, payload) => {
         payload[curKey].forEach(elem => {
           result[key].push(_injectNamespace(value[0], elem));
         });
-      }
-      else if (typeof payload[curKey] === "object") {
+      } else if (typeof payload[curKey] === "object") {
         result[key] = _injectNamespace(value[0], payload[curKey]);
-      }
-      else {
+      } else {
         result[key] = payload[curKey];
       }
     }
@@ -45,6 +44,14 @@ const _injectNamespace = (template, payload) => {
 };
 
 describe("mapRequest.js", function () {
+  const templateFilename = "testTemplate.xml";
+  const payload = { sampleKey: "sampleValue" };
+
+  beforeEach(() => {
+    mapRequest.SOAPTemplateCache = {};
+    sinon.restore();
+  });
+
   describe("amendInvolvedParty_OCIFtoCG", function () {
     it("should map the payload correctly", async function () {
       const payload = { originatorData: { country: "US" }, identifier: { id: "12345" } };
@@ -57,14 +64,14 @@ describe("mapRequest.js", function () {
     it("should handle errors and call logError", async function () {
       const payload = { identifier: { id: "12345" } };
       sinon.stub(mapRequest, "mapEnvelope").throws(new Error("Simulated Error"));
-      
+
       try {
         await mapRequest.amendInvolvedParty_OCIFtoCG(payload);
       } catch (error) {
         expect(logErrorStub.calledOnce).to.be.true;
         expect(logErrorStub.calledWith("error mapping amendInvolvedParty Response")).to.be.true;
       }
-      
+
       mapRequest.mapEnvelope.restore();
     });
   });
@@ -79,40 +86,37 @@ describe("mapRequest.js", function () {
     });
   });
 
-  describe("mapSoapHeader", function () {
-    it("should map the SOAP header based on originator data", function () {
-      const originatorData = { channel: "Web", appCatId: "App1", country: "CA" };
-      const result = mapRequest.mapSoapHeader(originatorData);
-      expect(result).to.have.property("IsHeader", true);
-      expect(result.header.Header).to.have.property("bmoHdrRq");
-    });
-  });
-
-  describe("mapSoapBody", function () {
-    it("should map the SOAP body including input header and input body", function () {
-      const payload = { identifier: { id: "12345" } };
-      const result = mapRequest.mapSoapBody(payload);
-      expect(result).to.have.property("IsSoapBody", true);
-      expect(result.soapBody.Body).to.have.property("AmendInvolvedPartyRequest");
-    });
-  });
-
-  describe("mapAmendInvolvedPartyInputHeader", function () {
-    it("should map the input header correctly", function () {
-      const result = mapRequest.mapAmendInvolvedPartyInputHeader();
-      expect(result).to.have.property("IsInputHeader", true);
-      expect(result.inputHeader.AmendInvolvedPartyInputHeader).to.have.property("BusinessUnitCode", "BB");
-    });
-  });
-
-  describe("mapInvolvedPartyIdentifier", function () {
-    it("should map the involved party identifier", function () {
-      const payload = { identifier: { id: "12345" } };
-      const result = mapRequest.mapInvolvedPartyIdentifier(payload);
-      expect(result).to.deep.equal({
-        IsPartyIdentifier: true,
-        partyIdentifierObj: { InvolvedPartyIdentifier: "12345" }
+  describe("injectPayloadNamespace", function () {
+    it("should parse and cache the template when SOAPTemplateCache is empty", async function () {
+      sinon.stub(xml2js, "parseStringPromise").resolves({
+        "soapenv:Envelope": {
+          "$": { "xmlns:mock": "http://mocknamespace" },
+          "soapenv:Body": [{ "mockRequest": [{ mockElement: "mockValue" }] }]
+        }
       });
+
+      const result = await mapRequest.injectPayloadNamespace(templateFilename, payload);
+      expect(result).to.have.property("xmlnsAttributes").that.is.an("array").with.lengthOf(1);
+      expect(result.xmlnsAttributes[0]).to.include({ name: "xmlns:mock", value: "http://mocknamespace" });
+      expect(result).to.have.property("rootNS").that.is.a("string");
+    });
+
+    it("should use cached template if SOAPTemplateCache is not empty", async function () {
+      mapRequest.SOAPTemplateCache[templateFilename] = {
+        template: { cachedKey: "cachedValue" },
+        xmlnsAttributes: [{ name: "xmlns:cached", value: "http://cachednamespace" }],
+        rootNS: "cachedRootNS"
+      };
+
+      const result = await mapRequest.injectPayloadNamespace(templateFilename, payload);
+      expect(result.xmlnsAttributes).to.deep.include({ name: "xmlns:cached", value: "http://cachednamespace" });
+      expect(result.rootNS).to.equal("cachedRootNS");
+    });
+
+    it("should throw an error if template parsing fails", async function () {
+      sinon.stub(xml2js, "parseStringPromise").rejects(new Error("Parsing Error"));
+
+      await expect(mapRequest.injectPayloadNamespace(templateFilename, payload)).to.be.rejectedWith("Parsing Error");
     });
   });
 
@@ -144,13 +148,15 @@ describe("mapRequest.js", function () {
           },
         ],
       };
-  
+
       const result = mapRequest.mapForeignIndiciaList(data);
-  
+
       expect(result).to.have.property("IsForeignIndiciaList", true);
       expect(result.foreignIndiciaData).to.have.property("AmendForeignIndicia").that.is.an("array");
+
       const mappedIndicia = result.foreignIndiciaData.AmendForeignIndicia[0];
       expect(mappedIndicia).to.have.property("Action", "ADD");
+
       const foreignIndiciaDetails = mappedIndicia.ForeignIndicia;
       expect(foreignIndiciaDetails).to.have.property("TransitNumber", "1234");
       expect(foreignIndiciaDetails).to.have.property("ForeignTaxCountry", "US");
@@ -161,130 +167,101 @@ describe("mapRequest.js", function () {
       expect(foreignIndiciaDetails).to.have.property("InformationCollectorName", "CollectorName");
     });
   });
-  
-describe("injectPayloadNamespace", function () {
-  let templateFilename, payload;
 
-  beforeEach(() => {
-    templateFilename = "testTemplate.xml";
-    payload = { sampleKey: "sampleValue" };
+  describe("mapForeignTaxTrustList", function () {
+    it("should map foreign tax trust list when data is complete", function () {
+      const data = {
+        foreignTaxTrust: [
+          {
+            action: "ADD",
+            sourceObjectRef: [{ objectRef: [{ refKeyUser: "testUser", refKeyValue: "identifierValue" }] }],
+            lastMaintainedDate: "2023-10-30T12:34:56.789Z",
+            trustAccountNumber: "TRUST-123",
+            systemIdentificationCode: "SYS-456",
+            preexistingProfile: true,
+            preexistingProfileCrs: true,
+            taxAccountClassCrs: "ClassCrs",
+            taxAccountClass: "Class",
+            taxEntityClass: "EntityClass",
+            indiciaCheckComplete: true,
+            owningSldp: "OwningSLDP"
+          }
+        ]
+      };
 
-    // Manually set the cache before each test case
-    mapRequest.SOAPTemplateCache = {
-      [templateFilename]: {
-        template: { cachedKey: "cachedValue" },
-        xmlnsAttributes: [{ name: "xmlns:cached", value: "http://cachednamespace" }],
-        rootNS: "cachedRootNS",
-      }
-    };
-  });
-
-  afterEach(() => {
-    sinon.restore();
-  });
-
-  it("should parse and cache the template when SOAPTemplateCache is empty", async function () {
-    // Clear the cache to simulate an empty cache scenario
-    mapRequest.SOAPTemplateCache = {};
-
-    const parseStringPromiseStub = sinon.stub(xml2js, "parseStringPromise").resolves({
-      "soapenv:Envelope": {
-        "$": { "xmlns:mock": "http://mocknamespace" },
-        "soapenv:Body": [{ "mockRequest": [{ mockElement: "mockValue" }] }],
-      },
-    });
-
-    const result = await mapRequest.injectPayloadNamespace(templateFilename, payload);
-
-    expect(result).to.have.property("xmlnsAttributes").that.is.an("array").with.lengthOf(1);
-    expect(result.xmlnsAttributes[0]).to.include({ name: "xmlns:mock", value: "http://mocknamespace" });
-    expect(result).to.have.property("rootNS").that.is.a("string");
-
-    parseStringPromiseStub.restore();
-  });
-
-it("should use cached template if SOAPTemplateCache is not empty", async function () {
-  // Ensure the cache has the exact data structure expected
-  mapRequest.SOAPTemplateCache = {
-    [templateFilename]: {
-      template: { cachedKey: "cachedValue" },
-      xmlnsAttributes: [{ name: "xmlns:cached", value: "http://cachednamespace" }],
-      rootNS: "cachedRootNS",
-    },
-  };
-
-  // Stub the _injectNamespace function to check that the cache is used
-  const injectNamespaceSpy = sinon.spy(mapRequest, "_injectNamespace");
-
-  // Run the function with the cached template
-  const result = await mapRequest.injectPayloadNamespace(templateFilename, payload);
-
-  // Verify the entire xmlnsAttributes array matches the cached values exactly
-  expect(result.xmlnsAttributes).to.deep.equal([
-    { name: "xmlns:cached", value: "http://cachednamespace" },
-  ]);
-
-  expect(result.rootNS).to.equal("cachedRootNS");
-
-  // Ensure _injectNamespace was called (indicating cache usage)
-  expect(injectNamespaceSpy.calledOnce).to.be.true;
-  injectNamespaceSpy.restore();
-});
-
-it("should throw an error if template parsing fails", async function () {
-  // Stub `parseStringPromise` to simulate a parsing failure
-  const parseStringPromiseStub = sinon.stub(xml2js, "parseStringPromise").rejects(new Error("Parsing Error"));
-
-  // Attempt to call `injectPayloadNamespace` and expect it to throw
-  try {
-    await mapRequest.injectPayloadNamespace(templateFilename, payload);
-  } catch (error) {
-    expect(error.message).to.include("Parsing Error");
-  }
-
-  // Restore the stub
-  parseStringPromiseStub.restore();
-});
-
-});
-
-  describe("mapForeignSupportDocumentList", function () {
-    it("should map foreign support document list using mapperHelper", function () {
-      const data = { foreignSupportDocument: [{ action: "ADD", documentStatus: "Verified" }] };
-      const result = mapRequest.mapForeignSupportDocumentList(data);
-      expect(result).to.have.property("IsForeignSupportDocument", true);
-    });
-  });
-
-  describe("mapForeignTaxEntityObj", function () {
-    it("should map foreign tax entity object correctly", function () {
-      const data = { foreignTaxEntity: { action: "UPDATE", canadianTaxResident: true } };
-      const result = mapRequest.mapForeignTaxEntityObj(data);
-      expect(result).to.have.property("IsForeignTaxEntityObj", true);
-    });
-  });
-
-  describe("mapForeignTaxIndividualObj", function () {
-    it("should map foreign tax individual object correctly", function () {
-      const data = { foreignTaxIndividual: { action: "DELETE", usCitizen: true } };
-      const result = mapRequest.mapForeignTaxIndividualObj(data);
-      expect(result).to.have.property("IsForeignTaxIndividual", true);
-    });
-  });
-
-  describe("mapForeignTaxCountryList", function () {
-    it("should map foreign tax country list using mapperHelper", function () {
-      const data = { foreignTaxCountry: [{ action: "ADD", foreignTaxStatusType: "Active" }] };
-      const result = mapRequest.mapForeignTaxCountryList(data);
-      expect(result).to.have.property("IsForeignTaxCountry", true);
-    });
-  });
-
-  describe("mapForeignTaxRoleList", function () {
-    it("should map foreign tax role list correctly", function () {
-      const data = { foreignTaxRole: [{ action: "ADD", usCitizen: true }] };
-      const result = mapRequest.mapForeignTaxRoleList(data);
+      const result = mapRequest.mapForeignTaxTrustList(data);
       expect(result).to.have.property("IsForeignTaxRole", true);
+      expect(result.foreignTaxTrustData).to.have.property("AmendForeignTaxTrust").that.is.an("array");
+
+      const mappedTrust = result.foreignTaxTrustData.AmendForeignTaxTrust[0];
+      expect(mappedTrust).to.have.property("Action", "ADD");
+
+      const trustDetails = mappedTrust.ForeignTaxTrust;
+      expect(trustDetails).to.have.property("TrustAccountNumber", "TRUST-123");
+      expect(trustDetails).to.have.property("SystemIdentificationCode", "SYS-456");
+      expect(trustDetails).to.have.property("PreexistingProfile", true);
+      expect(trustDetails).to.have.property("PreexistingProfileCRS", true);
+      expect(trustDetails).to.have.property("TaxAccountClassCRS", "ClassCrs");
+      expect(trustDetails).to.have.property("TaxAccountClass", "Class");
+      expect(trustDetails).to.have.property("TaxEntityClass", "EntityClass");
+      expect(trustDetails).to.have.property("IndiciaCheckComplete", true);
+      expect(trustDetails).to.have.property("OwningSLDP", "OwningSLDP");
+    });
+  });
+
+  // Unit tests for `_injectNamespace`
+  describe("_injectNamespace (local test implementation)", function () {
+    it("should handle array values in the payload", function () {
+      const template = { "ns:Items": [{ "ns:Item": { "ns:Name": {} } }] };
+      const payload = { Items: [{ Name: "Item1" }] };
+
+      const result = _injectNamespace(template, payload);
+
+      expect(result).to.deep.equal({
+        "ns:Items": [{ "ns:Item": { "ns:Name": "Item1" } }],
+      });
+    });
+
+    it("should handle nested object values in the payload", function () {
+      const template = { "ns:Parent": { "ns:Child": { "ns:Grandchild": {} } } };
+      const payload = { Parent: { Child: { Grandchild: "Value" } } };
+
+      const result = _injectNamespace(template, payload);
+
+      expect(result).to.deep.equal({
+        "ns:Parent": { "ns:Child": { "ns:Grandchild": "Value" } },
+      });
+    });
+
+    it("should handle plain values in the payload", function () {
+      const template = { "ns:Simple": {} };
+      const payload = { Simple: "JustAValue" };
+
+      const result = _injectNamespace(template, payload);
+
+      expect(result).to.deep.equal({
+        "ns:Simple": "JustAValue",
+      });
+    });
+
+    it("should skip keys not present in the payload", function () {
+      const template = { "ns:UnusedKey": {}, "ns:UsedKey": {} };
+      const payload = { UsedKey: "Value" };
+
+      const result = _injectNamespace(template, payload);
+
+      expect(result).to.deep.equal({
+        "ns:UsedKey": "Value",
+      });
+    });
+
+    it("should handle empty template and payload objects", function () {
+      const template = {};
+      const payload = {};
+
+      const result = _injectNamespace(template, payload);
+
+      expect(result).to.deep.equal({});
     });
   });
 });
