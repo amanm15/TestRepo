@@ -162,56 +162,61 @@ describe("mapRequest.js", function () {
     });
   });
   
-  describe("injectPayloadNamespace", function () {
-    let templateFilename, payload;
+describe("injectPayloadNamespace", function () {
+  let templateFilename, payload;
 
-    beforeEach(() => {
-      templateFilename = "testTemplate.xml";
-      payload = { sampleKey: "sampleValue" };
+  beforeEach(() => {
+    templateFilename = "testTemplate.xml";
+    payload = { sampleKey: "sampleValue" };
+  });
+
+  afterEach(() => {
+    sinon.restore();
+  });
+
+  it("should parse and cache the template when SOAPTemplateCache is empty", async function () {
+    const parseStringPromiseStub = sinon.stub(xml2js, "parseStringPromise").resolves({
+      "soapenv:Envelope": {
+        "$": { "xmlns:mock": "http://mocknamespace" },
+        "soapenv:Body": [{ "mockRequest": [{ mockElement: "mockValue" }] }],
+      },
     });
 
-    afterEach(() => {
-      sinon.restore();
-    });
+    const result = await mapRequest.injectPayloadNamespace(templateFilename, payload);
 
-    it("should parse and cache the template when SOAPTemplateCache is empty", async function () {
-      const parseStringPromiseStub = sinon.stub(xml2js, "parseStringPromise").resolves({
-        "soapenv:Envelope": {
-          "$": { "xmlns:mock": "http://mocknamespace" },
-          "soapenv:Body": [{ "mockRequest": [{ mockElement: "mockValue" }] }],
-        },
-      });
+    expect(result).to.have.property("xmlnsAttributes").that.is.an("array").with.lengthOf(1);
+    expect(result.xmlnsAttributes[0]).to.include({ name: "xmlns:mock", value: "http://mocknamespace" });
+    expect(result).to.have.property("rootNS").that.is.a("string");
 
-      const result = await mapRequest.injectPayloadNamespace(templateFilename, payload);
+    parseStringPromiseStub.restore();
+  });
 
-      expect(result).to.have.property("xmlnsAttributes").that.is.an("array").with.lengthOf(1);
-      expect(result.xmlnsAttributes[0]).to.include({ name: "xmlns:mock", value: "http://mocknamespace" });
-      expect(result).to.have.property("rootNS").that.is.a("string");
-
-      parseStringPromiseStub.restore();
-    });
-
-    it("should use cached template if SOAPTemplateCache is not empty", async function () {
-      mapRequest.SOAPTemplateCache[templateFilename] = {
+  it("should use cached template if SOAPTemplateCache is not empty", async function () {
+    // Stub the SOAPTemplateCache with mock data to simulate cache behavior
+    const cacheStub = sinon.stub(mapRequest, "SOAPTemplateCache").value({
+      [templateFilename]: {
         template: { cachedKey: "cachedValue" },
         xmlnsAttributes: [{ name: "xmlns:cached", value: "http://cachednamespace" }],
         rootNS: "cachedRootNS",
-      };
-
-      const injectNamespaceStub = sinon.stub(mapRequest, "_injectNamespace").returns({ injected: "value" });
-      const result = await mapRequest.injectPayloadNamespace(templateFilename, payload);
-
-      expect(result.xmlnsAttributes).to.deep.include({ name: "xmlns:cached", value: "http://cachednamespace" });
-      expect(result.rootNS).to.equal("cachedRootNS");
-      injectNamespaceStub.restore();
+      }
     });
 
-    it("should throw an error if template parsing fails", async function () {
-      const parseStringPromiseStub = sinon.stub(xml2js, "parseStringPromise").rejects(new Error("Parsing Error"));
-      await expect(mapRequest.injectPayloadNamespace(templateFilename, payload)).to.be.rejectedWith("Parsing Error");
-      parseStringPromiseStub.restore();
-    });
+    const injectNamespaceStub = sinon.stub(mapRequest, "_injectNamespace").returns({ injected: "value" });
+    const result = await mapRequest.injectPayloadNamespace(templateFilename, payload);
+
+    expect(result.xmlnsAttributes).to.deep.include({ name: "xmlns:cached", value: "http://cachednamespace" });
+    expect(result.rootNS).to.equal("cachedRootNS");
+
+    injectNamespaceStub.restore();
+    cacheStub.restore();
   });
+
+  it("should throw an error if template parsing fails", async function () {
+    const parseStringPromiseStub = sinon.stub(xml2js, "parseStringPromise").rejects(new Error("Parsing Error"));
+    await expect(mapRequest.injectPayloadNamespace(templateFilename, payload)).to.be.rejectedWith("Parsing Error");
+    parseStringPromiseStub.restore();
+  });
+});
 
   describe("mapForeignSupportDocumentList", function () {
     it("should map foreign support document list using mapperHelper", function () {
