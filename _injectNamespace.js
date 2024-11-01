@@ -52,9 +52,9 @@ describe("_injectNamespace", function () {
     expect(result).to.deep.equal({});
   });
 
-  it("should return an empty object when template contains undefined values", function () {
-    const template = { "ns:UndefinedKey": undefined };
-    const payload = { UndefinedKey: "SomeValue" };
+  it("should skip array elements when template array contains undefined elements", function () {
+    const template = { "ns:Items": [undefined] };
+    const payload = { Items: [{ Name: "Item1" }] };
 
     const result = mapRequest._injectNamespace(template, payload);
 
@@ -63,12 +63,30 @@ describe("_injectNamespace", function () {
 
   it("should handle cases where nested objects are missing in payload", function () {
     const template = { "ns:Parent": { "ns:Child": { "ns:Grandchild": {} } } };
-    const payload = { Parent: { Child: {} } };  // Missing Grandchild key in payload
+    const payload = { Parent: { Child: {} } }; // Missing Grandchild key in payload
 
     const result = mapRequest._injectNamespace(template, payload);
 
     expect(result).to.deep.equal({
-      "ns:Parent": { "ns:Child": {} },  // Grandchild is not added as it’s not in payload
+      "ns:Parent": { "ns:Child": {} }, // Grandchild is not added as it’s not in payload
     });
+  });
+
+  it("should handle undefined array elements in template and ignore them", function () {
+    const template = { "ns:Items": [{ "ns:Item": undefined }] };
+    const payload = { Items: [{ Name: "Item1" }] };
+
+    const result = mapRequest._injectNamespace(template, payload);
+
+    expect(result).to.deep.equal({});
+  });
+
+  it("should return an empty object when template has undefined values", function () {
+    const template = { "ns:UndefinedKey": undefined };
+    const payload = { UndefinedKey: "SomeValue" };
+
+    const result = mapRequest._injectNamespace(template, payload);
+
+    expect(result).to.deep.equal({});
   });
 });
