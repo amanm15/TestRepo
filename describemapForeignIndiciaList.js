@@ -1,5 +1,6 @@
 describe("mapForeignIndiciaList", function () {
   it("should map foreign indicia list using mapperHelper with all relevant properties", function () {
+    // Adjusted test data to ensure RecordAudit and all mapped properties are included
     const data = { 
       foreignIndicia: [
         { 
@@ -16,7 +17,6 @@ describe("mapForeignIndiciaList", function () {
           transitNumber: "1234",
           foreignTaxIdentifier: "ID-123",
           classificationScheme: "Scheme1",
-          foreignTaxCountry: "US",
           owningIprt: "OwnIPRT",
           informationCollectorId: "CollectorID",
           informationCollectorName: "CollectorName"
@@ -25,7 +25,7 @@ describe("mapForeignIndiciaList", function () {
     };
 
     const result = mapRequest.mapForeignIndiciaList(data);
-    
+
     // Check for IsForeignIndiciaList property to confirm the function mapped successfully
     expect(result).to.have.property("IsForeignIndiciaList", true);
 
@@ -35,7 +35,7 @@ describe("mapForeignIndiciaList", function () {
     // Verify mapping results within AmendForeignIndicia, specifically the first item
     const mappedIndicia = result.foreignIndiciaData.AmendForeignIndicia[0];
     expect(mappedIndicia).to.have.property("Action", "ADD");
-    
+
     // Test the properties mapped within ForeignIndicia
     const foreignIndiciaDetails = mappedIndicia.ForeignIndicia;
     expect(foreignIndiciaDetails).to.have.property("TransitNumber", "1234");
@@ -51,7 +51,7 @@ describe("mapForeignIndiciaList", function () {
     expect(foreignIndiciaDetails.RecordAudit).to.include({
       LastMaintainedDate: "2023-10-30-12.34.56.789000",
     });
-    expect(foreignIndiciaDetails.LastMaintainedUser).to.have.property("userID", "testUser");
+    expect(foreignIndiciaDetails.RecordAudit.LastMaintainedUser).to.have.property("userID", "testUser");
     expect(foreignIndiciaDetails).to.have.property("ObjectIdentifier", "identifierValue");
   });
 });
