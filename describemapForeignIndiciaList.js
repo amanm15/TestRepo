@@ -1,17 +1,20 @@
 describe("mapForeignIndiciaList", function () {
-  it("should map foreign indicia list using mapperHelper with all relevant properties", function () {
-    // Adjusted test data to ensure RecordAudit and all mapped properties are included
-    const data = { 
+  it("should map foreign indicia list and include RecordAudit with all relevant properties", function () {
+    const data = {
       foreignIndicia: [
-        { 
-          action: "ADD", 
+        {
+          action: "ADD",
           foreignTaxCountry: "US",
-          sourceObjectRef: [{ 
-            objectRef: [{ 
-              refKeyUser: "testUser",
-              refKeyValue: "identifierValue"
-            }]
-          }],
+          sourceObjectRef: [
+            {
+              objectRef: [
+                {
+                  refKeyUser: "testUser",
+                  refKeyValue: "identifierValue",
+                },
+              ],
+            },
+          ],
           lastMaintainedDate: "2023-10-30T12:34:56.789Z",
           informationCollectedTimestamp: "2023-10-30T12:34:56.789Z",
           transitNumber: "1234",
@@ -19,9 +22,9 @@ describe("mapForeignIndiciaList", function () {
           classificationScheme: "Scheme1",
           owningIprt: "OwnIPRT",
           informationCollectorId: "CollectorID",
-          informationCollectorName: "CollectorName"
-        }
-      ]
+          informationCollectorName: "CollectorName",
+        },
+      ],
     };
 
     const result = mapRequest.mapForeignIndiciaList(data);
@@ -46,12 +49,16 @@ describe("mapForeignIndiciaList", function () {
     expect(foreignIndiciaDetails).to.have.property("InformationCollectorID", "CollectorID");
     expect(foreignIndiciaDetails).to.have.property("InformationCollectorName", "CollectorName");
 
-    // Check if RecordAudit exists before asserting on its contents
-    expect(foreignIndiciaDetails).to.have.property("RecordAudit");
-    expect(foreignIndiciaDetails.RecordAudit).to.include({
-      LastMaintainedDate: "2023-10-30-12.34.56.789000",
-    });
+    // Check for RecordAudit creation and nested properties within it
+    expect(foreignIndiciaDetails).to.have.property("RecordAudit").that.is.an("object");
+
+    // Nested check for LastMaintainedDate in RecordAudit
+    expect(foreignIndiciaDetails.RecordAudit).to.have.property("LastMaintainedDate", "2023-10-30-12.34.56.789000");
+    
+    // Verify LastMaintainedUser inside RecordAudit
     expect(foreignIndiciaDetails.RecordAudit.LastMaintainedUser).to.have.property("userID", "testUser");
+
+    // Additional ObjectIdentifier verification
     expect(foreignIndiciaDetails).to.have.property("ObjectIdentifier", "identifierValue");
   });
 });
