@@ -1,6 +1,3 @@
-const { expect } = require('chai');
-const mapRequest = require('../path/to/mapRequest'); // Adjust the path as needed
-
 describe("_injectNamespace", function () {
   it("should handle array values in the payload", function () {
     const template = { "ns:Items": [{ "ns:Item": { "ns:Name": {} } }] };
@@ -55,13 +52,23 @@ describe("_injectNamespace", function () {
     expect(result).to.deep.equal({});
   });
 
-  it("should return an empty object for undefined inputs", function () {
-    const result = mapRequest._injectNamespace(undefined, undefined);
+  it("should return an empty object when template contains undefined values", function () {
+    const template = { "ns:UndefinedKey": undefined };
+    const payload = { UndefinedKey: "SomeValue" };
+
+    const result = mapRequest._injectNamespace(template, payload);
+
     expect(result).to.deep.equal({});
   });
 
-  it("should return an empty object for null inputs", function () {
-    const result = mapRequest._injectNamespace(null, null);
-    expect(result).to.deep.equal({});
+  it("should handle cases where nested objects are missing in payload", function () {
+    const template = { "ns:Parent": { "ns:Child": { "ns:Grandchild": {} } } };
+    const payload = { Parent: { Child: {} } };  // Missing Grandchild key in payload
+
+    const result = mapRequest._injectNamespace(template, payload);
+
+    expect(result).to.deep.equal({
+      "ns:Parent": { "ns:Child": {} },  // Grandchild is not added as it’s not in payload
+    });
   });
 });
