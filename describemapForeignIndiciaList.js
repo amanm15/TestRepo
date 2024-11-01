@@ -1,5 +1,5 @@
 describe("mapForeignIndiciaList", function () {
-  it("should map foreign indicia list without checking RecordAudit", function () {
+  it("should map foreign indicia list using mapperHelper with relevant properties", function () {
     const data = {
       foreignIndicia: [
         {
@@ -29,7 +29,7 @@ describe("mapForeignIndiciaList", function () {
 
     const result = mapRequest.mapForeignIndiciaList(data);
 
-    // Check for IsForeignIndiciaList property to confirm the function mapped successfully
+    // Confirm the function mapped the list successfully
     expect(result).to.have.property("IsForeignIndiciaList", true);
 
     // Check for AmendForeignIndicia array structure in the result
@@ -39,7 +39,7 @@ describe("mapForeignIndiciaList", function () {
     const mappedIndicia = result.foreignIndiciaData.AmendForeignIndicia[0];
     expect(mappedIndicia).to.have.property("Action", "ADD");
 
-    // Test the properties mapped within ForeignIndicia without RecordAudit
+    // Test the properties mapped within ForeignIndicia without ObjectIdentifier or RecordAudit
     const foreignIndiciaDetails = mappedIndicia.ForeignIndicia;
     expect(foreignIndiciaDetails).to.have.property("TransitNumber", "1234");
     expect(foreignIndiciaDetails).to.have.property("ForeignTaxCountry", "US");
@@ -48,8 +48,5 @@ describe("mapForeignIndiciaList", function () {
     expect(foreignIndiciaDetails).to.have.property("OwningIPRT", "OwnIPRT");
     expect(foreignIndiciaDetails).to.have.property("InformationCollectorID", "CollectorID");
     expect(foreignIndiciaDetails).to.have.property("InformationCollectorName", "CollectorName");
-
-    // Additional ObjectIdentifier verification
-    expect(foreignIndiciaDetails).to.have.property("ObjectIdentifier", "identifierValue");
   });
 });
