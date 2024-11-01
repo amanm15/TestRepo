@@ -203,19 +203,33 @@ describe("injectPayloadNamespace", function () {
     parseStringPromiseStub.restore();
   });
 
-  it("should use cached template if SOAPTemplateCache is not empty", async function () {
-    const injectNamespaceSpy = sinon.spy(mapRequest, "_injectNamespace");
+it("should use cached template if SOAPTemplateCache is not empty", async function () {
+  // Ensure the cache has the exact data structure expected
+  mapRequest.SOAPTemplateCache = {
+    [templateFilename]: {
+      template: { cachedKey: "cachedValue" },
+      xmlnsAttributes: [{ name: "xmlns:cached", value: "http://cachednamespace" }],
+      rootNS: "cachedRootNS",
+    },
+  };
 
-    const result = await mapRequest.injectPayloadNamespace(templateFilename, payload);
+  // Stub the _injectNamespace function to check that the cache is used
+  const injectNamespaceSpy = sinon.spy(mapRequest, "_injectNamespace");
 
-    // Confirm that the cached data is returned without calling parseStringPromise
-    expect(result.xmlnsAttributes).to.deep.include({ name: "xmlns:cached", value: "http://cachednamespace" });
-    expect(result.rootNS).to.equal("cachedRootNS");
+  // Run the function with the cached template
+  const result = await mapRequest.injectPayloadNamespace(templateFilename, payload);
 
-    // Ensure _injectNamespace was called (indicating cache usage)
-    expect(injectNamespaceSpy.called).to.be.true;
-    injectNamespaceSpy.restore();
-  });
+  // Verify the entire xmlnsAttributes array matches the cached values exactly
+  expect(result.xmlnsAttributes).to.deep.equal([
+    { name: "xmlns:cached", value: "http://cachednamespace" },
+  ]);
+
+  expect(result.rootNS).to.equal("cachedRootNS");
+
+  // Ensure _injectNamespace was called (indicating cache usage)
+  expect(injectNamespaceSpy.calledOnce).to.be.true;
+  injectNamespaceSpy.restore();
+});
 
   it("should throw an error if template parsing fails", async function () {
     // Clear cache to trigger parsing and test error handling
