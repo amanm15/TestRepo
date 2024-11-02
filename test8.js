@@ -39,7 +39,7 @@ describe('mapResponse', () => {
 
     it('should return a default error response when faultcode is undefined', async () => {
         xml2jsStub.Parser().parseString = (xml, callback) => {
-            callback(null, { Envelope: { Body: { Fault: {} } } }); // No faultcode
+            callback(null, { Envelope: { Body: { Fault: {} } } }); // Simulate missing faultcode
         };
 
         const mockResponse = { statusCode: 500, body: '<xml>sample</xml>' };
@@ -84,7 +84,7 @@ describe('mapResponse', () => {
     it('should return empty response object when statusCode is 200', async () => {
         const mockResponse = { statusCode: 200, body: '<xml>sample</xml>' };
         const result = await mapResponse.amendInvolvedParty_CGtoOCIF(mockResponse);
-
+        
         expect(result.statusCode).to.equal(200);
         expect(result.responseObject).to.deep.equal({});
     });
