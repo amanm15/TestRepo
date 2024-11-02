@@ -17,7 +17,7 @@ describe('mapResponse', () => {
                 parseString: sinon.stub().yields(null, {
                     Envelope: {
                         Body: {
-                            Fault: { faultcode: "fault:systemFault" }
+                            Fault: { faultcode: "fault:systemFault" } // Ensure faultcode is a string
                         }
                     }
                 })
@@ -39,7 +39,7 @@ describe('mapResponse', () => {
 
     it('should return a default error response when faultcode is undefined', async () => {
         xml2jsStub.Parser().parseString = (xml, callback) => {
-            callback(null, { Envelope: { Body: { Fault: {} } } }); // Simulate missing faultcode
+            callback(null, { Envelope: { Body: { Fault: {} } } }); // No faultcode
         };
 
         const mockResponse = { statusCode: 500, body: '<xml>sample</xml>' };
@@ -56,7 +56,7 @@ describe('mapResponse', () => {
                 Envelope: {
                     Body: {
                         Fault: {
-                            faultcode: "fault:systemFault",
+                            faultcode: "fault:systemFault", // Stub as string to prevent errors
                             detail: {
                                 systemFault: {
                                     faultInfo: {
@@ -114,7 +114,7 @@ describe('mapResponse', () => {
                 Envelope: {
                     Body: {
                         Fault: {
-                            faultcode: "fault:datavalidationfault",
+                            faultcode: "fault:datavalidationfault", // Stub as string
                             detail: {
                                 datavalidationFault: {
                                     faultInfo: {
@@ -143,7 +143,7 @@ describe('mapResponse', () => {
                 Envelope: {
                     Body: {
                         Fault: {
-                            faultcode: "fault:dataaccessfault",
+                            faultcode: "fault:dataaccessfault", // Stub as string
                             detail: {
                                 dataAccessFault: {
                                     faultInfo: {
