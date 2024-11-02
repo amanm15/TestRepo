@@ -3,7 +3,6 @@ const sinon = require('sinon');
 const proxyquire = require('proxyquire').noCallThru();
 
 describe('updateEtchData', () => {
-  let sandbox;
   let updateEtchData;
   let amendInvolvedPartyStub;
   let getCorrelationIdStub;
@@ -14,44 +13,44 @@ describe('updateEtchData', () => {
   let mockPayload;
 
   beforeEach(() => {
-    sandbox = sinon.createSandbox();
+    // Set up stubs
+    amendInvolvedPartyStub = sinon.stub();
+    getCorrelationIdStub = sinon.stub().returns('mockCorrelationId');
+    infoV2Stub = sinon.stub();
+    logErrorStub = sinon.stub();
 
-    // Stubbing dependencies
-    amendInvolvedPartyStub = sandbox.stub().resolves({
-      statusCode: 200, // Corrected property name
-      responseObject: { key: 'value' } // Corrected property name
-    });
-    getCorrelationIdStub = sandbox.stub().returns('mockCorrelationId');
-    infoV2Stub = sandbox.stub();
-    logErrorStub = sandbox.stub();
-
-    // Proxyquire the file and inject the stubs
+    // Proxyquire to inject stubs
     updateEtchData = proxyquire('../service/starters/updateEtchData', {
       '@bmo-util/framework': {
         getCorrelationId: getCorrelationIdStub,
         infoV2: infoV2Stub,
-        logError: logErrorStub
+        logError: logErrorStub,
       },
       '../subService/amendInvolvedParty': {
-        amendInvolvedParty: amendInvolvedPartyStub
-      }
+        amendInvolvedParty: amendInvolvedPartyStub,
+      },
     });
 
+    // Mock arguments
     mockArgs = {
       headers: {
         'x-fapi-interaction-id': 'mockInteractionId',
-        'x-client-id': 'mockClientId'
-      }
+        'x-client-id': 'mockClientId',
+      },
     };
-
-    mockPayload = { /* Your mock payload */ };
+    mockPayload = {}; // Set payload as necessary
   });
 
   afterEach(() => {
-    sandbox.restore();
+    sinon.restore();
   });
 
   it('should return a valid response when amendInvolvedParty succeeds with status 200', async () => {
+    amendInvolvedPartyStub.resolves({
+      statusCode: 200,
+      responseObject: { key: 'value' },
+    });
+
     const result = await updateEtchData(mockPayload, mockArgs);
 
     expect(amendInvolvedPartyStub.calledOnce).to.be.true;
@@ -59,12 +58,13 @@ describe('updateEtchData', () => {
     expect(result.headers).to.include({
       'x-request-id': 'mockCorrelationId',
       'x-fapi-interaction-id': 'mockInteractionId',
-      'x-client-id': 'mockClientId'
+      'x-client-id': 'mockClientId',
     });
     expect(infoV2Stub.calledOnce).to.be.true;
   });
 
   it('should return a 400 error response and log error when amendInvolvedParty throws an error', async () => {
+    // Simulate amendInvolvedParty throwing an error
     amendInvolvedPartyStub.rejects(new Error('Test Error'));
 
     const result = await updateEtchData(mockPayload, mockArgs);
@@ -76,20 +76,25 @@ describe('updateEtchData', () => {
   });
 
   it('should default headers if they are not provided', async () => {
+    amendInvolvedPartyStub.resolves({
+      statusCode: 200,
+      responseObject: { key: 'value' },
+    });
+
     const argsWithoutHeaders = {}; // No headers in args
     const result = await updateEtchData(mockPayload, argsWithoutHeaders);
 
     expect(result.headers).to.include({
       'x-request-id': 'mockCorrelationId',
       'x-fapi-interaction-id': '987654321', // Default value
-      'x-client-id': '000' // Default value
+      'x-client-id': '000', // Default value
     });
   });
 
   it('should include response body when status code is not 200', async () => {
     amendInvolvedPartyStub.resolves({
-      statusCode: 400, // Corrected property name
-      responseObject: { error: 'some error' } // Corrected property name
+      statusCode: 400,
+      responseObject: { error: 'some error' },
     });
 
     const result = await updateEtchData(mockPayload, mockArgs);
