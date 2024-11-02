@@ -18,21 +18,21 @@ describe('updateEtchData', () => {
 
     // Stubbing dependencies
     amendInvolvedPartyStub = sandbox.stub().resolves({
-      statuscode: 200,
-      responseobject: { key: 'value' }
+      statusCode: 200, // Corrected property name
+      responseObject: { key: 'value' } // Corrected property name
     });
     getCorrelationIdStub = sandbox.stub().returns('mockCorrelationId');
     infoV2Stub = sandbox.stub();
     logErrorStub = sandbox.stub();
 
     // Proxyquire the file and inject the stubs
-    updateEtchData = proxyquire('../updateEtchData', {
+    updateEtchData = proxyquire('../service/starters/updateEtchData', {
       '@bmo-util/framework': {
         getCorrelationId: getCorrelationIdStub,
         infoV2: infoV2Stub,
         logError: logErrorStub
       },
-      '../subservice/amendInvolvedParty': {
+      '../subService/amendInvolvedParty': {
         amendInvolvedParty: amendInvolvedPartyStub
       }
     });
@@ -88,8 +88,8 @@ describe('updateEtchData', () => {
 
   it('should include response body when status code is not 200', async () => {
     amendInvolvedPartyStub.resolves({
-      statuscode: 400,
-      responseobject: { error: 'some error' }
+      statusCode: 400, // Corrected property name
+      responseObject: { error: 'some error' } // Corrected property name
     });
 
     const result = await updateEtchData(mockPayload, mockArgs);
