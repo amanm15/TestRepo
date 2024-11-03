@@ -573,6 +573,148 @@ describe("_injectNamespace with array elements in payload", function () {
             }
         });
     });
-});  
+});
+  
+describe("_injectNamespace function", function () {
+    
+    it("should handle array values in the payload correctly", function () {
+        const template = {
+            "ns:Parent": {
+                "ns:Items": [
+                    { "ns:Item": { "ns:Name": {} } }
+                ]
+            }
+        };
+        
+        // Payload contains an array for "Items" key
+        const payload = {
+            Parent: {
+                Items: [
+                    { Name: "FirstItem" },
+                    { Name: "SecondItem" }
+                ]
+            }
+        };
+
+        const result = _injectNamespace(template, payload);
+
+        expect(result).to.deep.equal({
+            "ns:Parent": {
+                "ns:Items": [
+                    { "ns:Item": { "ns:Name": "FirstItem" } },
+                    { "ns:Item": { "ns:Name": "SecondItem" } }
+                ]
+            }
+        });
+    });
+
+    it("should handle nested object values in the payload", function () {
+        const template = {
+            "ns:Parent": {
+                "ns:Child": {
+                    "ns:Grandchild": {}
+                }
+            }
+        };
+        
+        // Payload has a nested structure that matches the template structure
+        const payload = {
+            Parent: {
+                Child: {
+                    Grandchild: "Value"
+                }
+            }
+        };
+
+        const result = _injectNamespace(template, payload);
+
+        expect(result).to.deep.equal({
+            "ns:Parent": {
+                "ns:Child": {
+                    "ns:Grandchild": "Value"
+                }
+            }
+        });
+    });
+
+    it("should handle plain values in the payload", function () {
+        const template = { "ns:Simple": {} };
+        const payload = { Simple: "JustAValue" };
+
+        const result = _injectNamespace(template, payload);
+
+        expect(result).to.deep.equal({
+            "ns:Simple": "JustAValue"
+        });
+    });
+
+    it("should skip keys not present in the payload", function () {
+        const template = {
+            "ns:Parent": {
+                "ns:UnusedKey": {},
+                "ns:UsedKey": {}
+            }
+        };
+        const payload = {
+            Parent: {
+                UsedKey: "Value"
+            }
+        };
+
+        const result = _injectNamespace(template, payload);
+
+        expect(result).to.deep.equal({
+            "ns:Parent": {
+                "ns:UsedKey": "Value"
+            }
+        });
+    });
+
+    it("should return an empty result when the payload key does not match the template structure", function () {
+        const template = {
+            "ns:Parent": {
+                "ns:Child": {}
+            }
+        };
+        const payload = {
+            MismatchedKey: "SomeValue"
+        };
+
+        const result = _injectNamespace(template, payload);
+
+        expect(result).to.deep.equal({});
+    });
+
+    it("should handle an array with nested objects in the payload", function () {
+        const template = {
+            "ns:Parent": {
+                "ns:Items": [
+                    { "ns:Item": { "ns:Details": { "ns:Name": {} } } }
+                ]
+            }
+        };
+        
+        // Payload has an array of objects with nested structures
+        const payload = {
+            Parent: {
+                Items: [
+                    { Details: { Name: "ItemOne" } },
+                    { Details: { Name: "ItemTwo" } }
+                ]
+            }
+        };
+
+        const result = _injectNamespace(template, payload);
+
+        expect(result).to.deep.equal({
+            "ns:Parent": {
+                "ns:Items": [
+                    { "ns:Item": { "ns:Details": { "ns:Name": "ItemOne" } } },
+                    { "ns:Item": { "ns:Details": { "ns:Name": "ItemTwo" } } }
+                ]
+            }
+        });
+    });
+});
 
 });
