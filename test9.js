@@ -288,9 +288,8 @@ describe("injectPayloadNamespace", function () {
     });
   });
   
-  describe("mapForeignTaxTrustList", function () {
+describe("mapForeignTaxTrustList", function () {
     let data;
-    let validateObjBasedOnActionStub;
 
     beforeEach(() => {
       data = {
@@ -312,14 +311,13 @@ describe("injectPayloadNamespace", function () {
         ]
       };
 
-      // Stub the validateObjBasedOnAction function
-      validateObjBasedOnActionStub = sinon.stub().returns({ IsRecordAudit: true, IsLastMaintainedUser: true });
-      mapRequest.__Rewire__("validateObjBasedOnAction", validateObjBasedOnActionStub);
+      // Stub `validateObjBasedOnAction` to return specific values
+      validateObjBasedOnActionStub.returns({ IsRecordAudit: true, IsLastMaintainedUser: true });
     });
 
     afterEach(() => {
       sinon.restore();
-      mapRequest.__ResetDependency__("validateObjBasedOnAction");
+      validateObjBasedOnActionStub.reset();
     });
 
     it("should map foreign tax trust list correctly when all properties are present", function () {
@@ -395,5 +393,4 @@ describe("injectPayloadNamespace", function () {
       expect(trustDetails).to.not.have.property("RecordAudit");
     });
   });
-  
 });
