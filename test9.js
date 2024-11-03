@@ -409,7 +409,7 @@ it("should map foreign tax trust list without RecordAudit when conditions are no
   });
 
 describe("_injectNamespace", function () {
-    it("should handle array values in the payload", function () {
+    it("should handle array values with nested objects in the payload", function () {
         const template = { "ns:Items": [{ "ns:Item": { "ns:Name": {} } }] };
         const payload = { Items: [{ Name: "Item1" }, { Name: "Item2" }] };
 
@@ -423,37 +423,62 @@ describe("_injectNamespace", function () {
         });
     });
 
-    it("should handle object values in the payload", function () {
+    it("should handle nested object values in the payload", function () {
         const template = { "ns:Parent": { "ns:Child": { "ns:Grandchild": {} } } };
-        const payload = { Parent: { Child: { Grandchild: "Value" } } };
+        const payload = { Parent: { Child: { Grandchild: "NestedValue" } } };
 
         const result = _injectNamespace(template, payload);
 
         expect(result).to.deep.equal({
-            "ns:Parent": { "ns:Child": { "ns:Grandchild": "Value" } }
+            "ns:Parent": { "ns:Child": { "ns:Grandchild": "NestedValue" } }
         });
     });
 
-    it("should handle plain values in the payload", function () {
-        const template = { "ns:Simple": {} };
-        const payload = { Simple: "JustAValue" };
+    it("should handle plain values directly in the payload", function () {
+        const template = { "ns:SimpleValue": {} };
+        const payload = { SimpleValue: "DirectValue" };
 
         const result = _injectNamespace(template, payload);
 
         expect(result).to.deep.equal({
-            "ns:Simple": "JustAValue"
+            "ns:SimpleValue": "DirectValue"
         });
     });
 
-    it("should skip keys not present in the payload", function () {
+    it("should skip template keys not present in the payload", function () {
         const template = { "ns:UnusedKey": {}, "ns:UsedKey": {} };
-        const payload = { UsedKey: "Value" };
+        const payload = { UsedKey: "IncludedValue" };
 
         const result = _injectNamespace(template, payload);
 
         expect(result).to.deep.equal({
-            "ns:UsedKey": "Value"
+            "ns:UsedKey": "IncludedValue"
+        });
+    });
+
+    it("should handle a mix of array, object, and plain values in the payload", function () {
+        const template = {
+            "ns:Items": [{ "ns:Item": { "ns:Name": {} } }],
+            "ns:SingleObject": { "ns:Property": {} },
+            "ns:Simple": {}
+        };
+        const payload = {
+            Items: [{ Name: "ArrayItem1" }, { Name: "ArrayItem2" }],
+            SingleObject: { Property: "NestedProperty" },
+            Simple: "PlainValue"
+        };
+
+        const result = _injectNamespace(template, payload);
+
+        expect(result).to.deep.equal({
+            "ns:Items": [
+                { "ns:Name": "ArrayItem1" },
+                { "ns:Name": "ArrayItem2" }
+            ],
+            "ns:SingleObject": { "ns:Property": "NestedProperty" },
+            "ns:Simple": "PlainValue"
         });
     });
 });
+
 });
