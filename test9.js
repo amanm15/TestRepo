@@ -479,6 +479,18 @@ describe("_injectNamespace", function () {
             "ns:Simple": "PlainValue"
         });
     });
+
+it("should handle missing nested properties in _injectNamespace", function () {
+    const template = { "ns:Parent": { "ns:Child": { "ns:Grandchild": {} } } };
+    const payload = { Parent: { Child: {} } }; // `Grandchild` is missing in payload
+
+    const result = _injectNamespace(template, payload);
+
+    expect(result).to.deep.equal({
+        "ns:Parent": { "ns:Child": {} } // `Grandchild` should be omitted
+    });
+});
+  
 });
 
 });
