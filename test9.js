@@ -293,55 +293,54 @@ describe("mapForeignTaxTrustList", function () {
     let data;
 
     beforeEach(() => {
-      data = {
-        foreignTaxTrust: [
-          {
-            action: "ADD",
-            sourceObjectRef: [{ objectRef: [{ refKeyUser: "user1", refKeyValue: "identifier1" }] }],
-            lastMaintainedDate: "2023-10-30T12:34:56.789Z",
-            owningSldp: "SomeSLDP",
-            trustAccountNumber: "TRUST-123",
-            systemIdentificationCode: "SYS-456",
-            preexistingProfile: true,
-            preexistingProfileCrs: false,
-            taxAccountClassCrs: "ClassCrs",
-            taxAccountClass: "Class",
-            taxEntityClass: "EntityClass",
-            indiciaCheckComplete: true,
-          }
-        ]
-      };
+        data = {
+            foreignTaxTrust: [
+                {
+                    action: "ADD",
+                    sourceObjectRef: [{ objectRef: [{ refKeyUser: "user1", refKeyValue: "identifier1" }] }],
+                    lastMaintainedDate: "2023-10-30T12:34:56.789Z",
+                    owningSldp: "SomeSLDP",
+                    trustAccountNumber: "TRUST-123",
+                    systemIdentificationCode: "SYS-456",
+                    preexistingProfile: true,
+                    preexistingProfileCrs: false,  // Explicitly setting PreexistingProfileCRS
+                    taxAccountClassCrs: "ClassCrs",
+                    taxAccountClass: "Class",
+                    taxEntityClass: "EntityClass",
+                    indiciaCheckComplete: true,
+                }
+            ]
+        };
 
-      // Stub `validateObjBasedOnAction` to return specific values
-      validateObjBasedOnActionStub.returns({ IsRecordAudit: true, IsLastMaintainedUser: true });
+        validateObjBasedOnActionStub.returns({ IsRecordAudit: true, IsLastMaintainedUser: true });
     });
 
     afterEach(() => {
-      sinon.restore();
-      validateObjBasedOnActionStub.reset();
+        sinon.restore();
+        validateObjBasedOnActionStub.reset();
     });
 
     it("should map foreign tax trust list correctly when all properties are present", function () {
-      const result = mapRequest.mapForeignTaxTrustList(data);
+        const result = mapRequest.mapForeignTaxTrustList(data);
 
-      expect(result).to.have.property("IsForeignTaxRole", true);
-      expect(result.foreignTaxTrustData).to.have.property("AmendForeignTaxTrust").that.is.an("array");
+        expect(result).to.have.property("IsForeignTaxRole", true);
+        expect(result.foreignTaxTrustData).to.have.property("AmendForeignTaxTrust").that.is.an("array");
 
-      const mappedTrust = result.foreignTaxTrustData.AmendForeignTaxTrust[0];
-      expect(mappedTrust).to.have.property("Action", "ADD");
+        const mappedTrust = result.foreignTaxTrustData.AmendForeignTaxTrust[0];
+        expect(mappedTrust).to.have.property("Action", "ADD");
 
-      const trustDetails = mappedTrust.ForeignTaxTrust;
-      expect(trustDetails).to.have.property("OwningSLDP", "SomeSLDP");
-      expect(trustDetails).to.have.property("TrustAccountNumber", "TRUST-123");
-      expect(trustDetails).to.have.property("SystemIdentificationCode", "SYS-456");
-      expect(trustDetails).to.have.property("PreexistingProfile", true);
-      expect(trustDetails).to.have.property("PreexistingProfileCRS", false);
-      expect(trustDetails).to.have.property("TaxAccountClassCRS", "ClassCrs");
-      expect(trustDetails).to.have.property("TaxAccountClass", "Class");
-      expect(trustDetails).to.have.property("TaxEntityClass", "EntityClass");
-      expect(trustDetails).to.have.property("IndiciaCheckComplete", true);
-      expect(trustDetails).to.have.property("ObjectIdentifier", "identifier1");
-      expect(trustDetails.RecordAudit.LastMaintainedUser).to.have.property("userID", "user1");
+        const trustDetails = mappedTrust.ForeignTaxTrust;
+        expect(trustDetails).to.have.property("OwningSLDP", "SomeSLDP");
+        expect(trustDetails).to.have.property("TrustAccountNumber", "TRUST-123");
+        expect(trustDetails).to.have.property("SystemIdentificationCode", "SYS-456");
+        expect(trustDetails).to.have.property("PreexistingProfile", true);
+        expect(trustDetails).to.have.property("PreexistingProfileCRS", false);  // Check PreexistingProfileCRS
+        expect(trustDetails).to.have.property("TaxAccountClassCRS", "ClassCrs");
+        expect(trustDetails).to.have.property("TaxAccountClass", "Class");
+        expect(trustDetails).to.have.property("TaxEntityClass", "EntityClass");
+        expect(trustDetails).to.have.property("IndiciaCheckComplete", true);
+        expect(trustDetails).to.have.property("ObjectIdentifier", "identifier1");
+        expect(trustDetails.RecordAudit.LastMaintainedUser).to.have.property("userID", "user1");
     });
 
     it("should handle missing optional properties in foreignTaxTrust objects", function () {
