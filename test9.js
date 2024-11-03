@@ -68,6 +68,23 @@ describe("mapRequest.js", function () {
       
       mapRequest.mapEnvelope.restore();
     });
+
+it("should handle errors in amendInvolvedParty_OCIFtoCG gracefully", async () => {
+    const payload = { identifier: { id: "12345" } };
+    
+    // Stub `mapEnvelope` or other internal calls to throw errors
+    sinon.stub(mapRequest, "mapEnvelope").throws(new Error("Simulated mapping error"));
+
+    try {
+        await mapRequest.amendInvolvedParty_OCIFtoCG(payload);
+    } catch (error) {
+        expect(logErrorStub.calledOnce).to.be.true;
+        expect(logErrorStub.args[0][0]).to.include("error mapping amendInvolvedParty Response");
+    }
+
+    mapRequest.mapEnvelope.restore();
+});
+    
   });
 
   describe("mapEnvelope", function () {
@@ -230,7 +247,18 @@ describe("injectPayloadNamespace", function () {
     // Ensure _injectNamespace was called (indicating cache usage)
     expect(injectNamespaceSpy.calledOnce).to.be.false;
     injectNamespaceSpy.restore();
-  });  
+  });
+
+  it("should handle missing nested properties in _injectNamespace", function () {
+    const template = { "ns:Parent": { "ns:Child": { "ns:Grandchild": {} } } };
+    const payload = { Parent: { Child: {} } }; // `Grandchild` is missing in payload
+
+    const result = _injectNamespace(template, payload);
+
+    expect(result).to.deep.equal({
+        "ns:Parent": { "ns:Child": {} } // `Grandchild` should be omitted
+    });
+});
 
   it("should throw an error if template parsing fails", async function () {
     // Stub `parseStringPromise` to simulate a parsing failure
@@ -406,6 +434,26 @@ it("should map foreign tax trust list without RecordAudit when conditions are no
         // Expect `RecordAudit` not to be present
         //expect(trustDetails).to.not.have.property("RecordAudit");
     });
+it("should return false when foreignTaxTrust is null or undefined", function () {
+        let result = mapRequest.mapForeignTaxTrustList({ foreignTaxTrust: null });
+        expect(result).to.have.property("IsForeignTaxRole", false);
+
+        result = mapRequest.mapForeignTaxTrustList({ foreignTaxTrust: undefined });
+        expect(result).to.have.property("IsForeignTaxRole", false);
+    });
+
+    it("should return false when foreignTaxTrust is an empty array", function () {
+        const result = mapRequest.mapForeignTaxTrustList({ foreignTaxTrust: [] });
+        expect(result).to.have.property("IsForeignTaxRole", false);
+    });
+
+    it("should process foreignTaxTrust data when it contains entries", function () {
+        const data = { foreignTaxTrust: [{ action: "ADD", trustAccountNumber: "12345" }] };
+        const result = mapRequest.mapForeignTaxTrustList(data);
+
+        expect(result).to.have.property("IsForeignTaxRole", true);
+        expect(result.foreignTaxTrustData.AmendForeignTaxTrust[0]).to.have.property("Action", "ADD");
+    });  
   });
 
 describe("_injectNamespace", function () {
