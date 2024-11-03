@@ -289,7 +289,7 @@ describe("injectPayloadNamespace", function () {
     });
   });
   
-describe("mapForeignTaxTrustList", function () {
+describe("mapForeignTaxTrustList without RecordAudit", function () {
     let data;
 
     beforeEach(() => {
@@ -383,14 +383,28 @@ describe("mapForeignTaxTrustList", function () {
       expect(trustDetails2).to.have.property("TrustAccountNumber", "TRUST-789");
     });
 
-    it("should skip record audit fields if IsRecordAudit is false", function () {
-      validateObjBasedOnActionStub.returns({ IsRecordAudit: false, IsLastMaintainedUser: false });
+it("should map foreign tax trust list without RecordAudit when conditions are not met", function () {
+        const result = mapRequest.mapForeignTaxTrustList(data);
 
-      const result = mapRequest.mapForeignTaxTrustList(data);
-      const trustDetails = result.foreignTaxTrustData.AmendForeignTaxTrust[0].ForeignTaxTrust;
+        expect(result).to.have.property("IsForeignTaxRole", true);
+        expect(result.foreignTaxTrustData).to.have.property("AmendForeignTaxTrust").that.is.an("array");
 
-      // Verify that RecordAudit does not exist when IsRecordAudit is false
-      expect(trustDetails).to.not.have.property("RecordAudit");
+        const mappedTrust = result.foreignTaxTrustData.AmendForeignTaxTrust[0];
+        expect(mappedTrust).to.have.property("Action", "ADD");
+
+        const trustDetails = mappedTrust.ForeignTaxTrust;
+        expect(trustDetails).to.have.property("OwningSLDP", "SomeSLDP");
+        expect(trustDetails).to.have.property("TrustAccountNumber", "TRUST-123");
+        expect(trustDetails).to.have.property("SystemIdentificationCode", "SYS-456");
+        expect(trustDetails).to.have.property("PreexistingProfile", true);
+        expect(trustDetails).to.have.property("PreexistingProfileCRS", false);
+        expect(trustDetails).to.have.property("TaxAccountClassCRS", "ClassCrs");
+        expect(trustDetails).to.have.property("TaxAccountClass", "Class");
+        expect(trustDetails).to.have.property("TaxEntityClass", "EntityClass");
+        expect(trustDetails).to.have.property("IndiciaCheckComplete", true);
+
+        // Expect `RecordAudit` not to be present
+        expect(trustDetails).to.not.have.property("RecordAudit");
     });
   });
 });
