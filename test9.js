@@ -541,4 +541,20 @@ it("should handle missing nested properties in _injectNamespace", function () {
   
 });
 
+describe("_injectNamespace with array in payload", function () {
+    it("should iterate over array elements in payload and apply _injectNamespace to each element", function () {
+        const template = { "ns:Items": [{ "ns:Item": { "ns:Name": {} } }] };
+        const payload = { Items: [{ Name: "Item1" }, { Name: "Item2" }] };
+
+        const result = _injectNamespace(template, payload);
+
+        expect(result).to.deep.equal({
+            "ns:Items": [
+                { "ns:Item": { "ns:Name": "Item1" } },
+                { "ns:Item": { "ns:Name": "Item2" } }
+            ]
+        });
+    });
+});
+
 });
