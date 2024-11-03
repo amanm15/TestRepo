@@ -7,6 +7,7 @@ const xml2js = require("xml2js");
 const infoV2Stub = sinon.stub();
 const logErrorStub = sinon.stub();
 const getCorrelationIdStub = sinon.stub().returns("mockCorrelationId");
+const validateObjBasedOnActionStub = sinon.stub();
 
 // Importing mapRequest with stubs
 const mapRequest = proxyquire("../service/subService/amendInvolvedParty/mapRequest", {
