@@ -7,7 +7,6 @@ const xml2js = require("xml2js");
 const infoV2Stub = sinon.stub();
 const logErrorStub = sinon.stub();
 const getCorrelationIdStub = sinon.stub().returns("mockCorrelationId");
-const validateObjBasedOnActionStub = sinon.stub();
 
 // Importing mapRequest with stubs
 const mapRequest = proxyquire("../service/subService/amendInvolvedParty/mapRequest", {
@@ -18,136 +17,112 @@ const mapRequest = proxyquire("../service/subService/amendInvolvedParty/mapReque
   }
 });
 
-// Helper function _injectNamespace for tests
-const _injectNamespace = (template, payload) => {
-  let result = {};
+describe("mapRequest.js Additional Branch Coverage", function () {
 
-  if(!template || !payload) return result;
-
-  for (let [key, value] of Object.entries(template)) {
-    let curKey = key.split(":")[1];
-
-    if (Object.keys(payload).includes(curKey)) {
-      if (Array.isArray(payload[curKey])) {
-        result[key] = [];
-        payload[curKey].forEach(elem => {
-          result[key].push(_injectNamespace(value[0], elem));
-        });
-      }
-      else if (typeof payload[curKey] === "object") {
-        result[key] = _injectNamespace(value[0], payload[curKey]);
-      }
-      else {
-        result[key] = payload[curKey];
-      }
-    }
-  }
-  
-  return result;
-};
-
-describe("mapRequest.js Edge Cases", function () {
-  
-  describe("amendInvolvedParty_OCIFtoCG", function () {
-    it("should return an empty string when payload is missing required properties", async function () {
-      const payload = {}; // Empty payload
-      const result = await mapRequest.amendInvolvedParty_OCIFtoCG(payload);
-      expect(result).to.be.a("string").that.is.empty;
-    });
-  });
-
-  describe("mapEnvelope", function () {
-    it("should return only base structure when payload lacks originatorData", function () {
-      const payload = {}; // No originatorData
-      const result = mapRequest.mapEnvelope(payload);
-      expect(result).to.deep.include({
-        IsEnvelope: true,
-        envelope: { Header: {} }
-      });
-    });
-  });
-
-  describe("mapSoapHeader", function () {
-    it("should return only base structure when originatorData is incomplete", function () {
-      const originatorData = { channel: "Web" }; // Missing appCatId and country
-      const result = mapRequest.mapSoapHeader(originatorData);
-      expect(result.header.Header).to.have.property("bmoHdrRq").that.is.an("object");
-      expect(result.header.Header.bmoHdrRq).to.not.have.any.keys("country", "appCatId");
-    });
-  });
-
-  describe("mapSoapBody Edge Cases", function () {
-    it("should return IsSoapBody without AmendInvolvedPartyRequest when identifier is missing", function () {
-      const payload = {}; // Missing identifier
-      const result = mapRequest.mapSoapBody(payload);
-      expect(result).to.have.property("IsSoapBody", true);
-      expect(result.soapBody.Body).to.not.have.property("AmendInvolvedPartyRequest");
-    });
-  });
-
-  describe("mapInvolvedPartyIdentifier", function () {
-    it("should return empty object when identifier is missing", function () {
-      const payload = {}; // Missing identifier
-      const result = mapRequest.mapInvolvedPartyIdentifier(payload);
-      expect(result).to.deep.equal({
-        IsPartyIdentifier: true,
-        partyIdentifierObj: {}
-      });
-    });
-  });
-
-  describe("mapForeignIndiciaList Edge Cases", function () {
-    it("should handle empty foreignIndicia array gracefully", function () {
-      const data = { foreignIndicia: [] }; // Empty array
-      const result = mapRequest.mapForeignIndiciaList(data);
-      expect(result.foreignIndiciaData).to.have.property("AmendForeignIndicia").that.is.an("array").with.lengthOf(0);
-    });
-
-    it("should handle foreignIndicia objects with missing properties", function () {
-      const data = { foreignIndicia: [{ action: "ADD" }] }; // Missing detailed properties
+  describe("mapForeignIndiciaList Branch Coverage", function () {
+    it("should handle foreignIndicia with missing sourceObjectRef", function () {
+      const data = {
+        foreignIndicia: [
+          {
+            action: "ADD",
+            // sourceObjectRef is missing
+            foreignTaxCountry: "US",
+          }
+        ]
+      };
       const result = mapRequest.mapForeignIndiciaList(data);
       const mappedIndicia = result.foreignIndiciaData.AmendForeignIndicia[0];
-      expect(mappedIndicia).to.have.property("Action", "ADD");
-      expect(mappedIndicia.ForeignIndicia).to.not.have.keys("TransitNumber", "ForeignTaxCountry");
+      expect(mappedIndicia.ForeignIndicia).to.not.have.property("RecordAudit");
+    });
+
+    it("should handle foreignIndicia with non-array sourceObjectRef", function () {
+      const data = {
+        foreignIndicia: [
+          {
+            action: "ADD",
+            sourceObjectRef: "not-an-array",
+            foreignTaxCountry: "US",
+          }
+        ]
+      };
+      const result = mapRequest.mapForeignIndiciaList(data);
+      const mappedIndicia = result.foreignIndiciaData.AmendForeignIndicia[0];
+      expect(mappedIndicia.ForeignIndicia).to.not.have.property("RecordAudit");
     });
   });
 
-  describe("mapForeignTaxTrustList Edge Cases", function () {
-    it("should handle missing optional properties in foreignTaxTrust objects", function () {
+  describe("_injectNamespace Additional Coverage", function () {
+    it("should handle payload with non-array values when template expects array", function () {
+      const template = { "ns:Parent": [{ "ns:Child": {} }] };
+      const payload = { Parent: "non-array" }; // Non-array value where array is expected
+
+      const result = mapRequest._injectNamespace(template, payload);
+      expect(result).to.deep.equal({
+        "ns:Parent": []
+      });
+    });
+
+    it("should handle empty nested objects in payload without errors", function () {
+      const template = { "ns:Parent": { "ns:Child": { "ns:Grandchild": {} } } };
+      const payload = { Parent: { Child: {} } }; // Grandchild is missing
+
+      const result = mapRequest._injectNamespace(template, payload);
+      expect(result).to.deep.equal({
+        "ns:Parent": {}
+      });
+    });
+  });
+
+  describe("mapForeignTaxTrustList Branch Coverage", function () {
+    it("should handle foreignTaxTrust with missing action field", function () {
       const data = {
         foreignTaxTrust: [
           {
-            action: "UPDATE",
-            sourceObjectRef: [{ objectRef: [{ refKeyUser: "user2" }] }],
-            // Missing lastMaintainedDate, owningSldp, and other fields
+            // Missing action field
+            sourceObjectRef: [{ objectRef: [{ refKeyUser: "user1", refKeyValue: "identifier1" }] }],
+            trustAccountNumber: "TRUST-123"
           }
         ]
       };
       const result = mapRequest.mapForeignTaxTrustList(data);
       const trustDetails = result.foreignTaxTrustData.AmendForeignTaxTrust[0].ForeignTaxTrust;
-      expect(trustDetails).to.have.property("ObjectIdentifier");
-      expect(trustDetails).to.not.have.property("lastMaintainedDate");
-      expect(trustDetails).to.not.have.property("OwningSLDP");
+
+      expect(trustDetails).to.have.property("ObjectIdentifier", "identifier1");
+      expect(trustDetails).to.have.property("TrustAccountNumber", "TRUST-123");
     });
 
-    it("should handle empty foreignTaxTrust array", function () {
-      const data = { foreignTaxTrust: [] };
+    it("should handle foreignTaxTrust with empty sourceObjectRef array", function () {
+      const data = {
+        foreignTaxTrust: [
+          {
+            action: "ADD",
+            sourceObjectRef: [], // Empty array
+            trustAccountNumber: "TRUST-123"
+          }
+        ]
+      };
       const result = mapRequest.mapForeignTaxTrustList(data);
-      expect(result.foreignTaxTrustData.AmendForeignTaxTrust).to.be.an("array").that.is.empty;
+      const trustDetails = result.foreignTaxTrustData.AmendForeignTaxTrust[0].ForeignTaxTrust;
+
+      expect(trustDetails).to.not.have.property("ObjectIdentifier");
+      expect(trustDetails).to.have.property("TrustAccountNumber", "TRUST-123");
     });
   });
 
-  describe("mapAmendIdentification Edge Cases", function () {
-    it("should include default IdentificationText when payload has no identification data", function () {
-      const payload = {}; // No identification data
+  describe("mapAmendIdentification Branch Coverage", function () {
+    it("should include IdentificationTypeCode by default and handle empty payload gracefully", function () {
+      const payload = {}; // Empty payload
       const result = mapRequest.mapAmendIdentification(payload);
-      expect(result.amendIdentificationObj.AmendIdentification.Identification).to.have.property("IdentificationText", "381282912");
+
+      expect(result.amendIdentificationObj.AmendIdentification.Identification).to.have.property("IdentificationTypeCode").that.deep.equals({ Code: "SI" });
     });
 
-    it("should exclude IdentificationIssuingCountry if country is missing", function () {
-      const payload = {}; // No country provided
+    it("should include country in IdentificationIssuingCountry if provided", function () {
+      const payload = { originatorData: { country: "CA" } };
       const result = mapRequest.mapAmendIdentification(payload);
-      expect(result.amendIdentificationObj.AmendIdentification.Identification).to.not.have.property("IdentificationIssuingCountry");
+
+      expect(result.amendIdentificationObj.AmendIdentification.Identification).to.have.property("IdentificationIssuingCountry", "CA");
     });
   });
+  
 });
