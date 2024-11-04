@@ -1,0 +1,25 @@
+it("should trigger catch block and log error when amendInvolvedParty encounters an error", async () => {
+  // Arrange: Stub dependencies to throw an error
+  const payload = { /* Provide necessary payload structure */ };
+  const args = { /* Provide necessary args structure */ };
+
+  // Force the dependency that amendInvolvedParty relies on to throw an error
+  const dependencyStub = sinon.stub(mapRequest, "someInternalFunction").throws(new Error("Simulated Error"));
+
+  // Act & Assert
+  try {
+    await mapRequest.amendInvolvedParty(args, payload);
+  } catch (error) {
+    // Assert: Check that the error handling logic was invoked
+    expect(logErrorStub.calledOnce).to.be.true;
+    expect(logErrorStub.firstCall.args[0]).to.equal("error in amendInvolvedParty lambda"); // Adjust the message as per actual logging
+    expect(logErrorStub.firstCall.args[1].message).to.equal("Simulated Error");
+
+    // Additional assertions if amendInvolvedParty has a return object in case of an error
+    expect(error).to.be.instanceOf(Error);
+    expect(error.message).to.equal("Simulated Error");
+  }
+
+  // Cleanup: Restore the stubbed function
+  dependencyStub.restore();
+});
