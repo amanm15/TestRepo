@@ -717,4 +717,38 @@ describe("_injectNamespace function", function () {
     });
 });
 
+describe("convertISOtoOCIFDateTimestamp", function () {
+  it("should convert a standard ISO date to OCIF format", function () {
+    const isoDate = "2023-10-30T12:34:56.789Z"; // Example ISO date
+    const result = mapRequest.convertISOtoOCIFDateTimestamp(isoDate, false);
+
+    expect(result).to.equal("2023-10-30-12.34.56.789000");
+  });
+
+  it("should handle a date-only ISO string correctly", function () {
+    const isoDate = "2023-10-30"; // ISO date without time
+    const result = mapRequest.convertISOtoOCIFDateTimestamp(isoDate, false);
+
+    expect(result).to.equal("2023-10-30-00.00.00.000000");
+  });
+
+  it("should handle missing input gracefully", function () {
+    const result = mapRequest.convertISOtoOCIFDateTimestamp(null, false);
+    expect(result).to.equal(""); // Or the expected behavior for null input
+  });
+
+  it("should handle incorrect date formats gracefully", function () {
+    const invalidDate = "invalid-date";
+    const result = mapRequest.convertISOtoOCIFDateTimestamp(invalidDate, false);
+    expect(result).to.equal(""); // Assuming it returns an empty string on error
+  });
+
+  it("should handle the millisecond precision flag correctly", function () {
+    const isoDate = "2023-10-30T12:34:56.789Z";
+    const result = mapRequest.convertISOtoOCIFDateTimestamp(isoDate, true);
+    expect(result).to.equal("2023-10-30-12.34.56"); // Example without milliseconds
+  });
+});
+
+
 });
