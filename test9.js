@@ -804,5 +804,159 @@ describe("validateObjBasedOnAction", function () {
   });
 });
 
+describe("mapAmendInvolvedPartyInputBody", function () {
+  let mapInvolvedPartyIdentifierStub;
+  let mapAmendIdentificationStub;
+  let mapForeignIndiciaListStub;
+  let mapForeignTaxEntityObjStub;
+  let mapForeignTaxIndividualObjStub;
+  let mapForeignSupportDocumentListStub;
+  let mapForeignTaxCountryListStub;
+  let mapForeignTaxRoleListStub;
+  let mapForeignTaxTrustListStub;
+
+  beforeEach(() => {
+    // Stubbing each dependency to isolate the test for mapAmendInvolvedPartyInputBody
+    mapInvolvedPartyIdentifierStub = sinon.stub(mapRequest, "mapInvolvedPartyIdentifier").returns({ IsPartyIdentifier: true, partyIdentifierObj: { id: "12345" } });
+    mapAmendIdentificationStub = sinon.stub(mapRequest, "mapAmendIdentification").returns({ IsAmendIdentification: true, amendIdentificationObj: { name: "TestName" } });
+    mapForeignIndiciaListStub = sinon.stub(mapRequest, "mapForeignIndiciaList").returns({ IsForeignIndiciaList: true, foreignIndiciaData: { indicia: "testIndicia" } });
+    mapForeignTaxEntityObjStub = sinon.stub(mapRequest, "mapForeignTaxEntityObj").returns({ IsForeignTaxEntityObj: true, foreignTaxEntityData: { entity: "testEntity" } });
+    mapForeignTaxIndividualObjStub = sinon.stub(mapRequest, "mapForeignTaxIndividualObj").returns({ IsForeignTaxIndividual: true, foreignTaxIndividualData: { individual: "testIndividual" } });
+    mapForeignSupportDocumentListStub = sinon.stub(mapRequest, "mapForeignSupportDocumentList").returns({ IsForeignSupportDocument: true, foreignSupportDocumentData: { document: "testDocument" } });
+    mapForeignTaxCountryListStub = sinon.stub(mapRequest, "mapForeignTaxCountryList").returns({ IsForeignTaxCountry: true, foreignTaxCountryData: { country: "testCountry" } });
+    mapForeignTaxRoleListStub = sinon.stub(mapRequest, "mapForeignTaxRoleList").returns({ IsForeignTaxRole: true, foreignTaxRoleData: { role: "testRole" } });
+    mapForeignTaxTrustListStub = sinon.stub(mapRequest, "mapForeignTaxTrustList").returns({ IsForeignTaxTrust: true, foreignTaxTrustData: { trust: "testTrust" } });
+  });
+
+  afterEach(() => {
+    sinon.restore();
+  });
+
+  it("should return the correct inputBody structure when all sub-mapping functions return valid data", function () {
+    const payload = {}; // Mock payload, not used since we are stubbing all dependency functions
+    const result = mapRequest.mapAmendInvolvedPartyInputBody(payload);
+
+    expect(result).to.deep.equal({
+      IsInputBody: true,
+      inputBody: {
+        AmendInvolvedPartyInputBody: {
+          id: "12345",
+          name: "TestName",
+          indicia: "testIndicia",
+          entity: "testEntity",
+          individual: "testIndividual",
+          document: "testDocument",
+          country: "testCountry",
+          role: "testRole",
+          trust: "testTrust"
+        }
+      }
+    });
+  });
+
+  it("should exclude properties from inputBody when sub-mapping functions return false flags", function () {
+    // Adjust stubs to return false for certain flags
+    mapInvolvedPartyIdentifierStub.returns({ IsPartyIdentifier: false, partyIdentifierObj: {} });
+    mapAmendIdentificationStub.returns({ IsAmendIdentification: false, amendIdentificationObj: {} });
+    mapForeignIndiciaListStub.returns({ IsForeignIndiciaList: false, foreignIndiciaData: {} });
+    mapForeignTaxEntityObjStub.returns({ IsForeignTaxEntityObj: false, foreignTaxEntityData: {} });
+    mapForeignTaxIndividualObjStub.returns({ IsForeignTaxIndividual: false, foreignTaxIndividualData: {} });
+    mapForeignSupportDocumentListStub.returns({ IsForeignSupportDocument: false, foreignSupportDocumentData: {} });
+    mapForeignTaxCountryListStub.returns({ IsForeignTaxCountry: false, foreignTaxCountryData: {} });
+    mapForeignTaxRoleListStub.returns({ IsForeignTaxRole: false, foreignTaxRoleData: {} });
+    mapForeignTaxTrustListStub.returns({ IsForeignTaxTrust: false, foreignTaxTrustData: {} });
+
+    const payload = {}; // Mock payload
+    const result = mapRequest.mapAmendInvolvedPartyInputBody(payload);
+
+    expect(result).to.deep.equal({
+      IsInputBody: true,
+      inputBody: {
+        AmendInvolvedPartyInputBody: {}
+      }
+    });
+  });
+
+  it("should include only specific properties in inputBody based on sub-mapping function results", function () {
+    // Make some sub-functions return true and others return false
+    mapInvolvedPartyIdentifierStub.returns({ IsPartyIdentifier: true, partyIdentifierObj: { id: "12345" } });
+    mapAmendIdentificationStub.returns({ IsAmendIdentification: false, amendIdentificationObj: {} });
+    mapForeignIndiciaListStub.returns({ IsForeignIndiciaList: true, foreignIndiciaData: { indicia: "testIndicia" } });
+    mapForeignTaxEntityObjStub.returns({ IsForeignTaxEntityObj: false, foreignTaxEntityData: {} });
+    mapForeignTaxIndividualObjStub.returns({ IsForeignTaxIndividual: true, foreignTaxIndividualData: { individual: "testIndividual" } });
+    mapForeignSupportDocumentListStub.returns({ IsForeignSupportDocument: true, foreignSupportDocumentData: { document: "testDocument" } });
+    mapForeignTaxCountryListStub.returns({ IsForeignTaxCountry: false, foreignTaxCountryData: {} });
+    mapForeignTaxRoleListStub.returns({ IsForeignTaxRole: true, foreignTaxRoleData: { role: "testRole" } });
+    mapForeignTaxTrustListStub.returns({ IsForeignTaxTrust: false, foreignTaxTrustData: {} });
+
+    const payload = {}; // Mock payload
+    const result = mapRequest.mapAmendInvolvedPartyInputBody(payload);
+
+    expect(result).to.deep.equal({
+      IsInputBody: true,
+      inputBody: {
+        AmendInvolvedPartyInputBody: {
+          id: "12345",
+          indicia: "testIndicia",
+          individual: "testIndividual",
+          document: "testDocument",
+          role: "testRole"
+        }
+      }
+    });
+  });
+});
+
+describe("mapAmendIdentification", function () {
+  it("should return the basic structure of amendIdentificationObj without country", function () {
+    const payload = {}; // No country provided in payload
+    const result = mapRequest.mapAmendIdentification(payload);
+
+    expect(result).to.deep.equal({
+      IsAmendIdentification: false,
+      amendIdentificationObj: {
+        AmendIdentification: {
+          Identification: {
+            IdentificationTypeCode: { Code: "SI" },
+            IdentificationText: "381282912",
+            UseAuthorizationCode: "T",
+            LastViewedDate: "2024-09-04",
+            EnteredDate: new Date().toISOString().split("T")[0]
+          }
+        }
+      }
+    });
+  });
+
+  it("should include IdentificationIssuingCountry when country is provided in payload", function () {
+    const payload = { originatorData: { country: "US" } };
+    const result = mapRequest.mapAmendIdentification(payload);
+
+    expect(result).to.deep.equal({
+      IsAmendIdentification: false,
+      amendIdentificationObj: {
+        AmendIdentification: {
+          Identification: {
+            IdentificationTypeCode: { Code: "SI" },
+            IdentificationText: "381282912",
+            IdentificationIssuingCountry: "US",
+            UseAuthorizationCode: "T",
+            LastViewedDate: "2024-09-04",
+            EnteredDate: new Date().toISOString().split("T")[0]
+          }
+        }
+      }
+    });
+  });
+
+  it("should correctly set EnteredDate to today's date", function () {
+    const payload = {}; // Payload without country
+    const result = mapRequest.mapAmendIdentification(payload);
+
+    const today = new Date().toISOString().split("T")[0];
+    expect(result.amendIdentificationObj.AmendIdentification.Identification.EnteredDate).to.equal(today);
+  });
+});
+  
 
 });
