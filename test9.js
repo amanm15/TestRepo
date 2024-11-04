@@ -958,5 +958,56 @@ describe("mapAmendIdentification", function () {
   });
 });
   
+describe("getData", function () {
+  let getData;
+  let readFileStub;
 
+  beforeEach(() => {
+    // Stub `fs.promises.readFile`
+    readFileStub = sinon.stub();
+
+    // Import `getData` with `readFile` stubbed
+    getData = proxyquire("../path/to/your/module", {
+      fs: { promises: { readFile: readFileStub } }
+    }).getData;
+  });
+
+  afterEach(() => {
+    sinon.restore();
+  });
+
+  it("should read file successfully with default encoding", async function () {
+    // Set up stub to resolve with mock data
+    const mockData = "file content";
+    readFileStub.resolves(mockData);
+
+    const result = await getData("testfile.txt");
+
+    expect(readFileStub.calledOnceWith("testfile.txt", { encoding: "utf8" })).to.be.true;
+    expect(result).to.equal(mockData);
+  });
+
+  it("should read file with specified encoding", async function () {
+    const mockData = "binary content";
+    readFileStub.resolves(mockData);
+
+    const result = await getData("testfile.bin", "binary");
+
+    expect(readFileStub.calledOnceWith("testfile.bin", { encoding: "binary" })).to.be.true;
+    expect(result).to.equal(mockData);
+  });
+
+  it("should handle errors when reading file fails", async function () {
+    const error = new Error("File not found");
+    readFileStub.rejects(error);
+
+    try {
+      await getData("nonexistentfile.txt");
+    } catch (err) {
+      expect(readFileStub.calledOnceWith("nonexistentfile.txt", { encoding: "utf8" })).to.be.true;
+      expect(err).to.equal(error);
+    }
+  });
+});
+  
 });
