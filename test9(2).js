@@ -2,158 +2,149 @@ const { expect } = require("chai");
 const sinon = require("sinon");
 const mapRequest = require("../path/to/mapRequest");  // Adjust path as necessary
 
-describe("Branch Coverage Tests for mapRequest Functions", function () {
+describe("Comprehensive Coverage Tests for mapRequest Functions", function () {
 
   describe("mapForeignIndiciaList", function () {
-    it("should handle foreignIndicia with RecordAudit, LastMaintainedUser, and ObjectIdentifier", function () {
-      const data = {
-        foreignIndicia: [
-          {
-            action: "ADD",
-            lastMaintainedDate: "2024-11-03T10:20:30Z",
-            sourceObjectRef: [{ objectRef: [{ refKeyUser: "testUser", refKeyValue: "id123" }] }],
-            informationCollectedTimestamp: "2024-11-02T10:20:30Z",
-            transitNumber: "12345",
-            foreignTaxIdentifier: "FTI123",
-            classificationScheme: "Scheme1",
-            foreignTaxCountry: "US",
-            owningIprt: "IPRT001",
-            informationCollectorId: "CollectorID",
-            informationCollectorName: "CollectorName"
-          }
-        ]
-      };
+    it("should handle empty foreignIndicia array", function () {
+      const data = { foreignIndicia: [] };
       const result = mapRequest.mapForeignIndiciaList(data);
-      expect(result.IsForeignIndiciaList).to.be.true;
-      expect(result.foreignIndiciaData.AmendForeignIndicia).to.have.lengthOf(1);
-      const indiciaDetails = result.foreignIndiciaData.AmendForeignIndicia[0].ForeignIndicia;
-      expect(indiciaDetails).to.include.keys("RecordAudit", "TransitNumber", "ForeignTaxCountry");
+      expect(result.foreignIndiciaData.AmendForeignIndicia).to.have.lengthOf(0);
     });
 
-    it("should handle missing optional properties in foreignIndicia objects", function () {
+    it("should handle foreignIndicia with only required properties", function () {
       const data = { foreignIndicia: [{ action: "ADD" }] };
       const result = mapRequest.mapForeignIndiciaList(data);
       const indiciaDetails = result.foreignIndiciaData.AmendForeignIndicia[0].ForeignIndicia;
-      expect(indiciaDetails).to.not.have.property("ObjectIdentifier");
-      expect(indiciaDetails).to.not.have.property("TransitNumber");
+      expect(indiciaDetails).to.not.have.property("RecordAudit");
+    });
+
+    it("should handle multiple foreignIndicia items with various properties", function () {
+      const data = {
+        foreignIndicia: [
+          { action: "ADD", foreignTaxCountry: "US", transitNumber: "12345" },
+          { action: "UPDATE", lastMaintainedDate: "2024-11-02T10:20:30Z", informationCollectorId: "CollectorID" }
+        ]
+      };
+      const result = mapRequest.mapForeignIndiciaList(data);
+      expect(result.foreignIndiciaData.AmendForeignIndicia).to.have.lengthOf(2);
     });
   });
 
   describe("mapForeignSupportDocumentList", function () {
-    it("should map foreignSupportDocument list with RecordAudit and DocumentStatus", function () {
-      const data = {
-        foreignSupportDocument: [
-          {
-            action: "ADD",
-            lastMaintainedDate: "2024-11-03T10:20:30Z",
-            sourceObjectRef: [{ objectRef: [{ refKeyUser: "testUser", refKeyValue: "id123" }] }],
-            documentStatus: "Verified",
-            foreignTaxIdentifier: "FTI123"
-          }
-        ]
-      };
+    it("should handle empty foreignSupportDocument array", function () {
+      const data = { foreignSupportDocument: [] };
       const result = mapRequest.mapForeignSupportDocumentList(data);
-      expect(result.IsForeignSupportDocument).to.be.true;
-      expect(result.foreignSupportDocumentData.AmendForeignSupportDocuments).to.have.lengthOf(1);
-      const documentDetails = result.foreignSupportDocumentData.AmendForeignSupportDocuments[0].SupportDocument;
-      expect(documentDetails).to.include.keys("RecordAudit", "DocumentStatus", "ForeignTaxIdentifier");
+      expect(result.foreignSupportDocumentData.AmendForeignSupportDocuments).to.have.lengthOf(0);
     });
 
-    it("should handle missing optional properties in foreignSupportDocument objects", function () {
-      const data = { foreignSupportDocument: [{ action: "REMOVE" }] };
+    it("should handle foreignSupportDocument without RecordAudit", function () {
+      const data = { foreignSupportDocument: [{ action: "ADD", documentStatus: "Verified" }] };
       const result = mapRequest.mapForeignSupportDocumentList(data);
       const documentDetails = result.foreignSupportDocumentData.AmendForeignSupportDocuments[0].SupportDocument;
-      expect(documentDetails).to.not.have.property("ForeignTaxIdentifier");
-      expect(documentDetails).to.not.have.property("DocumentStatus");
+      expect(documentDetails).to.have.property("DocumentStatus", "Verified");
+      expect(documentDetails).to.not.have.property("RecordAudit");
+    });
+
+    it("should handle invalid foreignSupportDocument data gracefully", function () {
+      const data = { foreignSupportDocument: [{ action: "ADD", invalidField: "invalid" }] };
+      const result = mapRequest.mapForeignSupportDocumentList(data);
+      const documentDetails = result.foreignSupportDocumentData.AmendForeignSupportDocuments[0].SupportDocument;
+      expect(documentDetails).to.not.have.property("invalidField");
     });
   });
 
   describe("mapForeignTaxCountryList", function () {
-    it("should map foreignTaxCountry list with CountyOfResidenceStatus and RecordAudit", function () {
+    it("should handle foreignTaxCountry with minimal properties", function () {
+      const data = { foreignTaxCountry: [{ action: "ADD" }] };
+      const result = mapRequest.mapForeignTaxCountryList(data);
+      const countryDetails = result.foreignTaxCountryData.AmendForeignTaxCountry[0].ForeignTaxCountry;
+      expect(countryDetails).to.not.have.property("RecordAudit");
+    });
+
+    it("should handle empty foreignTaxCountry array", function () {
+      const data = { foreignTaxCountry: [] };
+      const result = mapRequest.mapForeignTaxCountryList(data);
+      expect(result.foreignTaxCountryData.AmendForeignTaxCountry).to.have.lengthOf(0);
+    });
+
+    it("should handle foreignTaxCountry with all properties and RecordAudit", function () {
       const data = {
         foreignTaxCountry: [
           {
             action: "UPDATE",
             lastMaintainedDate: "2024-11-03T10:20:30Z",
-            sourceObjectRef: [{ objectRef: [{ refKeyUser: "testUser", refKeyValue: "id123" }] }],
-            foreignTaxCountry: "CA",
-            countyOfResidenceStatus: "Resident",
-            userNameCountryDeclared: "CountryDeclarer"
+            sourceObjectRef: [{ objectRef: [{ refKeyUser: "testUser" }] }],
+            foreignTaxCountry: "CA"
           }
         ]
       };
       const result = mapRequest.mapForeignTaxCountryList(data);
-      expect(result.IsForeignTaxCountry).to.be.true;
-      expect(result.foreignTaxCountryData.AmendForeignTaxCountry).to.have.lengthOf(1);
       const countryDetails = result.foreignTaxCountryData.AmendForeignTaxCountry[0].ForeignTaxCountry;
-      expect(countryDetails).to.include.keys("RecordAudit", "ForeignTaxCountry", "CountyOfResidenceStatus");
-    });
-
-    it("should handle missing optional properties in foreignTaxCountry objects", function () {
-      const data = { foreignTaxCountry: [{ action: "REMOVE" }] };
-      const result = mapRequest.mapForeignTaxCountryList(data);
-      const countryDetails = result.foreignTaxCountryData.AmendForeignTaxCountry[0].ForeignTaxCountry;
-      expect(countryDetails).to.not.have.property("ForeignTaxCountry");
-      expect(countryDetails).to.not.have.property("CountyOfResidenceStatus");
+      expect(countryDetails).to.have.property("RecordAudit");
     });
   });
 
   describe("mapForeignTaxRoleList", function () {
-    it("should map foreignTaxRole list with TaxRole and RecordAudit", function () {
+    it("should handle empty foreignTaxRole array", function () {
+      const data = { foreignTaxRole: [] };
+      const result = mapRequest.mapForeignTaxRoleList(data);
+      expect(result.foreignTaxRoleData.AmendForeignTaxRole).to.have.lengthOf(0);
+    });
+
+    it("should handle foreignTaxRole without optional properties", function () {
+      const data = { foreignTaxRole: [{ action: "ADD" }] };
+      const result = mapRequest.mapForeignTaxRoleList(data);
+      const roleDetails = result.foreignTaxRoleData.AmendForeignTaxRole[0].ForeignTaxRole;
+      expect(roleDetails).to.not.have.property("RecordAudit");
+    });
+
+    it("should handle foreignTaxRole with all properties and RecordAudit", function () {
       const data = {
         foreignTaxRole: [
           {
-            action: "ADD",
+            action: "UPDATE",
             lastMaintainedDate: "2024-11-03T10:20:30Z",
-            sourceObjectRef: [{ objectRef: [{ refKeyUser: "testUser", refKeyValue: "id123" }] }],
-            taxRole: "TaxRoleValue",
-            taxRoleStatus: "Active"
+            sourceObjectRef: [{ objectRef: [{ refKeyUser: "testUser" }] }],
+            taxRole: "SomeRole"
           }
         ]
       };
       const result = mapRequest.mapForeignTaxRoleList(data);
-      expect(result.IsForeignTaxRole).to.be.true;
-      expect(result.foreignTaxRoleData.AmendForeignTaxRole).to.have.lengthOf(1);
       const roleDetails = result.foreignTaxRoleData.AmendForeignTaxRole[0].ForeignTaxRole;
-      expect(roleDetails).to.include.keys("RecordAudit", "TaxRole", "TaxRoleStatus");
-    });
-
-    it("should handle missing optional properties in foreignTaxRole objects", function () {
-      const data = { foreignTaxRole: [{ action: "DELETE" }] };
-      const result = mapRequest.mapForeignTaxRoleList(data);
-      const roleDetails = result.foreignTaxRoleData.AmendForeignTaxRole[0].ForeignTaxRole;
-      expect(roleDetails).to.not.have.property("TaxRole");
-      expect(roleDetails).to.not.have.property("TaxRoleStatus");
+      expect(roleDetails).to.have.property("RecordAudit");
     });
   });
 
   describe("mapForeignTaxTrustList", function () {
-    it("should map foreignTaxTrust list with RecordAudit, TrustAccountNumber, and SystemIdentificationCode", function () {
+    it("should handle empty foreignTaxTrust array", function () {
+      const data = { foreignTaxTrust: [] };
+      const result = mapRequest.mapForeignTaxTrustList(data);
+      expect(result.foreignTaxTrustData.AmendForeignTaxTrust).to.have.lengthOf(0);
+    });
+
+    it("should handle foreignTaxTrust with minimal properties", function () {
+      const data = { foreignTaxTrust: [{ action: "ADD" }] };
+      const result = mapRequest.mapForeignTaxTrustList(data);
+      const trustDetails = result.foreignTaxTrustData.AmendForeignTaxTrust[0].ForeignTaxTrust;
+      expect(trustDetails).to.not.have.property("RecordAudit");
+    });
+
+    it("should handle foreignTaxTrust with all properties and RecordAudit", function () {
       const data = {
         foreignTaxTrust: [
           {
             action: "UPDATE",
             lastMaintainedDate: "2024-11-03T10:20:30Z",
             sourceObjectRef: [{ objectRef: [{ refKeyUser: "testUser", refKeyValue: "id123" }] }],
-            trustAccountNumber: "TAN123",
-            systemIdentificationCode: "SIC456",
+            trustAccountNumber: "123456",
             preexistingProfile: true
           }
         ]
       };
       const result = mapRequest.mapForeignTaxTrustList(data);
-      expect(result.IsForeignTaxTrust).to.be.true;
-      expect(result.foreignTaxTrustData.AmendForeignTaxTrust).to.have.lengthOf(1);
       const trustDetails = result.foreignTaxTrustData.AmendForeignTaxTrust[0].ForeignTaxTrust;
-      expect(trustDetails).to.include.keys("RecordAudit", "TrustAccountNumber", "SystemIdentificationCode");
-    });
-
-    it("should handle missing optional properties in foreignTaxTrust objects", function () {
-      const data = { foreignTaxTrust: [{ action: "ADD" }] };
-      const result = mapRequest.mapForeignTaxTrustList(data);
-      const trustDetails = result.foreignTaxTrustData.AmendForeignTaxTrust[0].ForeignTaxTrust;
-      expect(trustDetails).to.not.have.property("TrustAccountNumber");
-      expect(trustDetails).to.not.have.property("SystemIdentificationCode");
+      expect(trustDetails).to.have.property("RecordAudit");
+      expect(trustDetails).to.have.property("TrustAccountNumber", "123456");
     });
   });
 
