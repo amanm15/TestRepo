@@ -750,5 +750,59 @@ describe("convertISOtoOCIFDateTimestamp", function () {
   });
 });
 
+describe("validateObjBasedOnAction", function () {
+  it("should return IsRecordAudit and IsLastMaintainedUser as false when Action is 'ADD'", function () {
+    const result = mapRequest.validateObjBasedOnAction("ADD", {}, "TestObject");
+    expect(result).to.deep.equal({
+      IsRecordAudit: false,
+      IsLastMaintainedUser: false
+    });
+  });
+
+  it("should return IsRecordAudit and IsLastMaintainedUser as true when Action is not 'ADD'", function () {
+    const result = mapRequest.validateObjBasedOnAction("UPDATE", { sourceObjectRef: [] }, "TestObject");
+    expect(result).to.deep.equal({
+      IsRecordAudit: true,
+      IsLastMaintainedUser: true
+    });
+  });
+
+  it("should throw an error when sourceObjectRef is defined but not an array", function () {
+    const invalidObj = { sourceObjectRef: "notAnArray" };
+    expect(() => mapRequest.validateObjBasedOnAction("UPDATE", invalidObj, "TestObject"))
+      .to.throw()
+      .that.deep.includes({
+        type: "failure",
+        title: "Invalid request body",
+        status: 400,
+        detail: `object has missing required properties (["id"])`
+      });
+  });
+
+  it("should throw an error when sourceObjectRef is undefined", function () {
+    const objWithUndefinedRef = {};
+    expect(() => mapRequest.validateObjBasedOnAction("UPDATE", objWithUndefinedRef, "TestObject"))
+      .to.throw()
+      .that.deep.includes({
+        type: "failure",
+        title: "Invalid request body",
+        status: 400,
+        detail: `sourceObjectRef must be defined in TestObject for UPDATE Action at index 1`
+      });
+  });
+
+  it("should throw an error when sourceObjectRef is an empty array", function () {
+    const objWithEmptyArrayRef = { sourceObjectRef: [] };
+    expect(() => mapRequest.validateObjBasedOnAction("UPDATE", objWithEmptyArrayRef, "TestObject"))
+      .to.throw()
+      .that.deep.includes({
+        type: "failure",
+        title: "Invalid request body",
+        status: 400,
+        detail: `sourceObjectRef in TestObject for UPDATE Action at index 1 MUST not be empty`
+      });
+  });
+});
+
 
 });
