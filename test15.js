@@ -8,7 +8,7 @@ const { getInvolvedParty } = require("../service/subService/getInvolvedParty/ind
 const mockmappedResponse = require("./mocks/mockmappedResponse.json");
 
 let infoV2Stub = sinon.stub();
-let debugV2Stub = sinon.stub();  // Added debugV2 stub
+let debugV2Stub = sinon.stub();
 let sendRequestStub = sinon.stub();
 let getInvolvedParty_OCIFtoCGStub = sinon.stub();
 
@@ -19,7 +19,7 @@ describe('Testing index.js', function () {
     index = proxyquire('../service/subService/getInvolvedParty/index.js', {
       "@bmo-util/framework": {
         infoV2: infoV2Stub,
-        debugV2: debugV2Stub,  // Use the debugV2 stub here
+        debugV2: debugV2Stub,
         logError: sinon.stub()
       },
       "./sendRequest": {
@@ -33,6 +33,43 @@ describe('Testing index.js', function () {
 
   afterEach(() => {
     sinon.reset(); // Reset the state before each test
+  });
+
+  it("should log response details and map response correctly", async function () {
+    const args = {
+      sm: {
+        getSecretValue: () => ({
+          promise: () => Promise.resolve({ SecretString: "Dummy" })
+        })
+      },
+      host: "mockedHost",
+      authenticationResources: {
+        fetchParamterFromCache: sinon.stub().resolves('mockedHost')
+      }
+    };
+    const payload = { requestForeignTaxEntity: true };
+
+    // Mocking the response from sendRequest
+    const mockResponse = { statusCode: 200, body: '<xml></xml>' };
+    sendRequestStub.resolves(mockResponse);
+
+    // Mocking the mapping function
+    getInvolvedParty_OCIFtoCGStub.resolves(mockmappedResponse);
+
+    const response = await getInvolvedParty(args, payload);
+
+    // Assertions to ensure the specific lines are executed
+    expect(infoV2Stub.calledOnce).to.be.true;
+    expect(infoV2Stub.calledWith("GetInvolvedParty OCIF XML Response", mockResponse.statusCode)).to.be.true;
+
+    expect(debugV2Stub.calledOnce).to.be.true;
+    expect(debugV2Stub.calledWith("GetInvolvedParty OCIF XML Response", mockResponse)).to.be.true;
+
+    // Check that the mapping function was called with the correct parameters
+    expect(getInvolvedParty_OCIFtoCGStub.calledOnce).to.be.true;
+    expect(getInvolvedParty_OCIFtoCGStub.calledWith(args, mockResponse.body, mockResponse.statusCode, sinon.match.any)).to.be.true;
+
+    expect(response).to.deep.equal(mockmappedResponse);
   });
 
   it("should return 400 when no request control flags are true", async function () {
@@ -57,35 +94,6 @@ describe('Testing index.js', function () {
         detail: "no data was requested, atleast one must be true"
       }
     });
-  });
-
-  it("should call sendRequest and return mapped response", async function () {
-    const args = {
-      sm: {
-        getSecretValue: () => ({
-          promise: () => Promise.resolve({ SecretString: "Dummy" })
-        })
-      },
-      host: "mockedHost",
-      authenticationResources: {
-        fetchParamterFromCache: sinon.stub().resolves('mockedHost')
-      }
-    };
-    const payload = { requestForeignTaxEntity: true };
-    
-    const mockResponse = { statusCode: 200, body: '<xml></xml>' };
-    sendRequestStub.resolves(mockResponse);
-    getInvolvedParty_OCIFtoCGStub.resolves(mockmappedResponse);
-
-    const response = await getInvolvedParty(args, payload);
-
-    // Ensure infoV2 and debugV2 were called with the correct arguments
-    expect(infoV2Stub.calledWith("GetInvolvedParty OCIF XML Response", mockResponse.statusCode)).to.be.true;
-    expect(debugV2Stub.calledWith("GetInvolvedParty OCIF XML Response", mockResponse)).to.be.true;
-
-    expect(sendRequestStub.calledOnce).to.be.true;
-    expect(getInvolvedParty_OCIFtoCGStub.calledOnce).to.be.true;
-    expect(response).to.deep.equal(mockmappedResponse);
   });
 
   it("should log an error and throw if sendRequest fails", async function () {
