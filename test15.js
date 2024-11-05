@@ -59,7 +59,13 @@ describe('Testing index.js', function () {
   });
 
   it("should call sendRequest and return mapped response", async function () {
-    const args = {};
+    const args = {
+      sm: {}, // Mocking the sm property
+      host: "mockedHost",
+      authenticationResources: {
+        fetchParamterFromCache: sinon.stub().resolves('mockedHost')
+      }
+    };
     const payload = { requestForeignTaxEntity: true };
     
     const mockResponse = { statusCode: 200, body: '<xml></xml>' };
@@ -75,7 +81,10 @@ describe('Testing index.js', function () {
   });
 
   it("should log an error and throw if sendRequest fails", async function () {
-    const args = {};
+    const args = {
+      sm: {}, // Mocking the sm property
+      host: "mockedHost"
+    };
     const payload = { requestForeignTaxEntity: true };
 
     sendRequestStub.rejects(new Error("Send request error"));
@@ -84,7 +93,10 @@ describe('Testing index.js', function () {
   });
 
   it("should log an error and throw if getInvolvedParty_OCIFtoCG fails", async function () {
-    const args = {};
+    const args = {
+      sm: {}, // Mocking the sm property
+      host: "mockedHost"
+    };
     const payload = { requestForeignTaxEntity: true };
 
     const mockResponse = { statusCode: 200, body: '<xml></xml>' };
