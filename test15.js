@@ -60,7 +60,11 @@ describe('Testing index.js', function () {
 
   it("should call sendRequest and return mapped response", async function () {
     const args = {
-      sm: {}, // Mocking the sm property
+      sm: {
+        getSecretValue: () => ({
+          promise: () => Promise.resolve({ SecretString: "Dummy" })
+        })
+      },
       host: "mockedHost",
       authenticationResources: {
         fetchParamterFromCache: sinon.stub().resolves('mockedHost')
@@ -82,7 +86,11 @@ describe('Testing index.js', function () {
 
   it("should log an error and throw if sendRequest fails", async function () {
     const args = {
-      sm: {}, // Mocking the sm property
+      sm: {
+        getSecretValue: () => ({
+          promise: () => Promise.resolve({ SecretString: "Dummy" })
+        })
+      },
       host: "mockedHost"
     };
     const payload = { requestForeignTaxEntity: true };
@@ -94,7 +102,11 @@ describe('Testing index.js', function () {
 
   it("should log an error and throw if getInvolvedParty_OCIFtoCG fails", async function () {
     const args = {
-      sm: {}, // Mocking the sm property
+      sm: {
+        getSecretValue: () => ({
+          promise: () => Promise.resolve({ SecretString: "Dummy" })
+        })
+      },
       host: "mockedHost"
     };
     const payload = { requestForeignTaxEntity: true };
