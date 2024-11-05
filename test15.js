@@ -8,6 +8,7 @@ const { getInvolvedParty } = require("../service/subService/getInvolvedParty/ind
 const mockmappedResponse = require("./mocks/mockmappedResponse.json");
 
 let infoV2Stub = sinon.stub();
+let debugV2Stub = sinon.stub();  // Added debugV2 stub
 let sendRequestStub = sinon.stub();
 let getInvolvedParty_OCIFtoCGStub = sinon.stub();
 
@@ -18,7 +19,7 @@ describe('Testing index.js', function () {
     index = proxyquire('../service/subService/getInvolvedParty/index.js', {
       "@bmo-util/framework": {
         infoV2: infoV2Stub,
-        debugV2: sinon.stub(),
+        debugV2: debugV2Stub,  // Use the debugV2 stub here
         logError: sinon.stub()
       },
       "./sendRequest": {
@@ -78,10 +79,13 @@ describe('Testing index.js', function () {
 
     const response = await getInvolvedParty(args, payload);
 
+    // Ensure infoV2 and debugV2 were called with the correct arguments
+    expect(infoV2Stub.calledWith("GetInvolvedParty OCIF XML Response", mockResponse.statusCode)).to.be.true;
+    expect(debugV2Stub.calledWith("GetInvolvedParty OCIF XML Response", mockResponse)).to.be.true;
+
     expect(sendRequestStub.calledOnce).to.be.true;
     expect(getInvolvedParty_OCIFtoCGStub.calledOnce).to.be.true;
     expect(response).to.deep.equal(mockmappedResponse);
-    expect(infoV2Stub.calledWith("GetInvolvedParty OCIF XML Response", mockResponse.statusCode)).to.be.true;
   });
 
   it("should log an error and throw if sendRequest fails", async function () {
