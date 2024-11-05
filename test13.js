@@ -4,17 +4,17 @@ chai.use(chaiAsPromised);
 const proxyquire = require("proxyquire");
 const sinon = require("sinon");
 const assert = require("assert");
-const { args, plainRequest, plainResponse } = require("./mockData/mocks");
+const { args, plainRequest } = require("./mockData/mocks");
 const xmlString = require("./mockData/xmlString.xml");
 
 describe('Testing sendRequest.js', function () {
   let sendrequest;
   let mutualSSL_SMstub = sinon.stub();
   let mapper_CGToOCIFstub = sinon.stub();
-  let infoV2Stub = sinon.stub().returns();
+  let infoV2Stub = sinon.stub();
   let getCorrelationIdstub = sinon.stub().returns(1234);
   let logErrorStub = sinon.stub();
-  
+
   before(function () {
     sendrequest = proxyquire('../service/subService/getInvolvedParty/sendRequest', {
       "@bmo-util/framework": {
@@ -53,7 +53,7 @@ describe('Testing sendRequest.js', function () {
     // Arrange
     const expectedError = new Error("Test error");
     mutualSSL_SMstub.rejects(expectedError);
-    
+
     // Act
     await sendrequest.sendRequest(args, plainRequest.originatorData).catch(err => {
       // Assert
@@ -77,7 +77,7 @@ describe('Testing sendRequest.js', function () {
 
   it("should call mapper_CGToOCIF with correct parameters", async function () {
     // Arrange
-    const ocifId = "329183547430300";
+    const ocifId = "329183547430300"; // Example OCIF ID
     const channel = "BRN";
     const employeeUserId = "btucker";
     const transitNumber = "0124";
@@ -94,15 +94,25 @@ describe('Testing sendRequest.js', function () {
 
   it("should handle production stage and mask OCIF ID", async function () {
     // Arrange
-    process.env.STAGE = "prod"; // Set the environment variable
+    process.env.STAGE = "prod"; // Set the environment variable to "prod"
     const ocifId = "123456789"; // Example OCIF ID
     const maskedOCIFId = "*".repeat(ocifId.length - 2) + ocifId.slice(-2);
     const expectedMaskedBody = mapper_CGToOCIF(maskedOCIFId, "BRN", "btucker", "0124", new Date().toISOString());
 
-    mapper_CGToOCIFstub.returns(expectedMaskedBody);
+    mapper_CGToOCIFstub.returns(expectedMaskedBody); // Ensure the mapper returns the expected masked body
+
+    // Mock the payload to include the identifier with the ocifId
+    const modifiedPayload = {
+      identifier: { id: ocifId },
+      originatorData: {
+        channel: "BRN",
+        employeeUserId: "btucker",
+        transitNumber: "0124"
+      }
+    };
 
     // Act
-    await sendrequest.sendRequest(args, plainRequest.originatorData);
+    await sendrequest.sendRequest(args, modifiedPayload);
 
     // Assert
     assert(infoV2Stub.calledWith("cg_to_GetInvolvedPartyPayload: ", expectedMaskedBody, "", true));
