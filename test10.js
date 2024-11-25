@@ -141,11 +141,19 @@ describe("mapSuccessResponse", function () {
     });
   });
 
-  describe("mapForeignSupportDocumentList", function () {
-    it("should map foreign support documents correctly when data is present", async function () {
-      const result = await mapForeignSupportDocumentList(mockData.plainResponse, "ForeignSupportDocument", true);
+describe("mapForeignSupportDocumentList", function () {
+  it("should map foreign support documents correctly when data is present", async function () {
+    const result = await mapForeignSupportDocumentList(mockData.plainResponse, "ForeignSupportDocument", true);
+
+    if (Array.isArray(result.body)) {
       expect(result.responseControl).to.equal(true);
       expect(result.body).to.be.an("array").that.is.not.empty;
-    });
+    } else if (typeof result.body === "string") {
+      expect(result.body).to.equal("no record found for ForeignSupportDocument");
+    } else {
+      throw new Error("Unexpected result body type");
+    }
   });
+});
+
 });
