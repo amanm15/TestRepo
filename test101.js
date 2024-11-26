@@ -167,4 +167,55 @@ describe("Testing mapResponse.js", function () {
       expect(Array.isArray(result.body) || typeof result.body === "string").to.be.true;
     });
   });
+
+describe("mapForeignTaxCountryList", function () {
+  it("should return an empty response when no foreign tax country data is found", async function () {
+    const data = { ForeignTaxCountry: {}, ListControl: { TotalRecords: 0 } };
+    const result = await mapForeignTaxCountryList(data, "ForeignTaxCountry", true);
+    
+    expect(result).to.be.an("object");
+    expect(result).to.have.property("responseControl").that.is.a("boolean");
+    expect(result.responseControl).to.equal(false);
+    expect(result).to.have.property("body").that.is.a("string");
+    expect(result.body).to.equal("no record found for ForeignTaxCountry");
+  });
+
+  it("should return a mapped response with correct data when foreign tax country data is available", async function () {
+    const data = {
+      ForeignTaxCountry: [
+        {
+          countryName: "Canada",
+          taxIdentificationNumber: "123456789"
+        }
+      ],
+      ListControl: { TotalRecords: 1 }
+    };
+    const result = await mapForeignTaxCountryList(data, "ForeignTaxCountry", true);
+    
+    expect(result).to.be.an("object");
+    expect(result).to.have.property("responseControl").that.is.a("boolean");
+    expect(result.responseControl).to.equal(true);
+    expect(result).to.have.property("body").that.is.an("array").that.is.not.empty;
+    expect(result.body[0]).to.have.property("countryName").that.is.a("string");
+    expect(result.body[0]).to.have.property("taxIdentificationNumber").that.is.a("string");
+  });
+
+  it("should handle missing ListControl data gracefully", async function () {
+    const data = {
+      ForeignTaxCountry: [
+        {
+          countryName: "United States",
+          taxIdentificationNumber: "987654321"
+        }
+      ]
+    };
+    const result = await mapForeignTaxCountryList(data, "ForeignTaxCountry", true);
+    
+    expect(result).to.be.an("object");
+    expect(result).to.have.property("responseControl").that.is.a("boolean");
+    expect(result.responseControl).to.equal(true);
+    expect(result).to.have.property("body").that.is.an("array").that.is.not.empty;
+  });
+});
+  
 });
